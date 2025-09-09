@@ -1,4 +1,4 @@
-<img width="1130" height="837" alt="image" src="https://github.com/user-attachments/assets/024f50a5-c1e5-49ba-9503-10acda933618" /># 🎮 Pixel Paddle  
+🎮 Pixel Paddle  
 
 Pixel Paddle is a retro-styled browser mini-game built with **HTML, CSS, and JavaScript**. Inspired by classic arcade paddlers, it evolves with modern twists like power-ups, hazards, combos, juicy feedback effects, and a groovy synth soundtrack.  
 
