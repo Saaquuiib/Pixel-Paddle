@@ -7,24 +7,21 @@
   --hazard:#ff5252;
   --text:#ffffff;
   --shadow:0 12px 28px rgba(0,0,0,.35);
+  --vh: 1vh; /* JS updates this for mobile safe viewport */
 }
 
 * { box-sizing: border-box; }
+html { overflow-anchor: none; } /* prevent scroll anchoring jumps */
 
 body {
   margin: 0;
   font-family: 'Press Start 2P', cursive;
   color: var(--text);
   background: linear-gradient(135deg, var(--bg1), var(--bg2));
-  min-height: 100vh;
+  min-height: calc(var(--vh) * 100);
   display: grid;
   place-items: center;
   animation: bgShift 28s linear infinite alternate;
-}
-
-/* Lock scroll on mobile only while playing */
-@media (max-width: 768px) {
-  body.noscroll { overflow: hidden; height: 100vh; }
 }
 
 button, input, select, textarea, ::placeholder {
@@ -33,8 +30,8 @@ button, input, select, textarea, ::placeholder {
 
 .container { text-align: center; width: 100%; }
 
+/* ---- Title + icon alignment fix ---- */
 h1{
-  /* keep your shadow/margins as-is if you like */
   display: inline-flex;
   align-items: baseline;          /* align to text baseline */
   justify-content: center;
@@ -43,29 +40,24 @@ h1{
   font-weight: 700;
   text-shadow: 0 2px 12px rgba(0,0,0,.25);
 }
-
-/* Make the emoji live in a predictable box and center it */
 h1 .icon{
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.25em;                  /* square box tied to font size */
+  width: 1.25em;
   height: 1.0em;
-  font-size: 1.35em;              /* slightly larger than text */
+  font-size: 1.35em;
   line-height: 1;
   vertical-align: middle;
   position: relative;
-  top: 0.06em;                    /* 🔧 nudge DOWN a touch (adjust ±.02em if needed) */
+  top: 0.06em; /* nudge to align with text cap height */
 }
+h1 .title{ line-height: 1; }
 
-/* Ensure the text has tight metrics so centers match */
-h1 .title{
-  line-height: 1;
-}
-
-/* ---- GAME AREA ---- */
+/* ---- CRT wrapper (padding around board) ---- */
 .crt { position: relative; padding: 10px; border-radius: 18px; }
 
+/* ---- Game Area ---- */
 #gameArea{
   position:relative;
   width:540px; max-width:92vw; aspect-ratio:4/5;
@@ -73,7 +65,7 @@ h1 .title{
   overflow:hidden; margin:0 auto 8px;
 }
 
-/* CRT scanlines + vignette now on the game area itself (stable) */
+/* Stable CRT scanlines + vignette directly on the board */
 #gameArea::before{
   content:""; position:absolute; inset:0; pointer-events:none;
   background: repeating-linear-gradient(
@@ -130,12 +122,12 @@ h1 .title{
   display:grid; place-items:center; font-size:14px;
 }
 
-/* Catch particles (now inside the board) */
+/* Catch particles (inside the board) */
 .particle{
   position:absolute; width:6px; height:6px; border-radius:2px; pointer-events:none; z-index:8;
 }
 
-/* HUD */
+/* ---- HUD ---- */
 .info{
   display:flex; gap:18px; align-items:center; justify-content:center;
   flex-wrap:wrap; font-weight:500; padding-bottom:10px;
@@ -209,3 +201,46 @@ button:disabled{ opacity:.65; cursor:not-allowed; }
 @keyframes fall { to{ transform:translateY(100vh) rotate(360deg); opacity:0; } }
 @keyframes bgShift { 0%{ filter:hue-rotate(0deg); } 100%{ filter:hue-rotate(25deg); } }
 @keyframes flicker { 0%{ opacity:.9; } 50%{ opacity:1; } 100%{ opacity:.9; } }
+
+/* ===== Mobile layout polish ===== */
+@media (max-width: 768px) {
+  /* Lock scroll only while playing, with proper viewport height */
+  body.noscroll {
+    position: fixed; inset: 0;
+    overflow: hidden;
+    height: calc(var(--vh) * 100);
+    width: 100%;
+  }
+
+  /* Keep the title always visible on top */
+  h1{
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 8px);
+    left: 50%; transform: translateX(-50%);
+    margin: 0;
+    z-index: 30;
+    padding: 4px 8px;
+  }
+  .container { padding-top: 64px; } /* space under sticky title */
+
+  /* Game area sits between title and bottom overlay */
+  #gameArea { margin: 8px auto; }
+
+  /* HUD becomes a floating overlay; doesn't affect page height */
+  .info{
+    position: fixed;
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    z-index: 30;
+    background: rgba(0,0,0,.28);
+    backdrop-filter: blur(8px);
+    border-radius: 12px;
+    padding: 8px 10px;
+    gap: 12px;
+    justify-content: space-between;
+  }
+  .info p{ margin: 0; font-size: 12px; }
+  .controls{ gap: 8px; }
+  .controls button{ padding: 8px 10px; font-size: 12px; }
+}

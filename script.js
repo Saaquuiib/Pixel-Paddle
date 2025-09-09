@@ -26,6 +26,20 @@ const volumeSlider = document.getElementById("volume");
 const muteToggle   = document.getElementById("muteToggle");
 const diffRadios   = [...document.querySelectorAll('input[name="difficulty"]')];
 
+// ---------- Mobile viewport fix ----------
+function setVh() {
+  const vh = window.innerHeight * 0.01;
+  document.documentElement.style.setProperty('--vh', `${vh}px`);
+}
+setVh();
+window.addEventListener('resize', setVh);
+window.addEventListener('orientationchange', setVh);
+
+function ensureTop() {
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  window.scrollTo(0, 0);
+}
+
 // ---------- Config ----------
 let MAX_MISSED = 3;
 const BALL_SIZE  = 20;
@@ -179,19 +193,18 @@ function startMusic(){
 
   musicTimer = setInterval(() => {
     const withinStep = (stepIdx % 2 === 1) ? swing : 0; // swing on off-16ths
-    const t = audioCtx.currentTime + 0.035 + withinStep; // slight scheduling lead
-
+    const t = audioCtx.currentTime + 0.035 + withinStep; // tiny scheduling lead
     const pos = stepIdx % 16;
 
     // KICK: 4-on-the-floor + ghost on 14
     if ([0,4,8,12].includes(pos)) scheduleKick(t);
     if (pos === 14) scheduleKick(t); // ghost
 
-    // SNARE: backbeat (2 & 4) with a little clap layer on 12
+    // SNARE: backbeat (2 & 4) with a clap layer on 12
     if (pos === 4 || pos === 12) scheduleSnare(t);
     if (pos === 12) scheduleClap(t + 0.01);
 
-    // HATS: closed every 8th (on all 16ths here), open on 7 & 15
+    // HATS: closed every 16th, open on 7 & 15
     const open = (pos === 7 || pos === 15);
     scheduleHat(t, open);
 
@@ -199,8 +212,7 @@ function startMusic(){
     const bassNotes = [65, 49, 58, 49, 65, 78, 98, 58]; // C2, G1, Bb1...
     if (pos % 2 === 0) {
       const n = bassNotes[(pos/2) % bassNotes.length];
-      // short pluck w/ small detune randomization
-      beepAt(n, step*800, withinStep ? (swing/1000) : 0, "square", .08, rnd(5));
+      beepAt(n, step*800, 0, "square", .08, rnd(5)); // short pluck
     }
 
     stepIdx++;
@@ -265,14 +277,17 @@ function applySettingsToUI(){
 
 // ---------- Lifecycle ----------
 function startGame() {
+  ensureTop();
   applySettingsToUI();
   resetGameState();
 
   startBtn.textContent = "Game Running…";
   startBtn.disabled = true;
   pauseBtn.disabled = false;
+
   document.body.style.cursor = "none";
-  document.body.classList.add("noscroll");
+  document.body.classList.add("noscroll");   // lock scroll on mobile
+  document.body.classList.add("playing");
 
   paused = false;
   pauseOverlay.classList.remove("show");
@@ -298,8 +313,10 @@ function resetUIOnly() {
   startBtn.disabled = false;
   pauseBtn.disabled = true;
   pauseBtn.textContent = "Pause";
+
   document.body.style.cursor = "default";
   document.body.classList.remove("noscroll");
+  document.body.classList.remove("playing");
   stopMusic();
 }
 
@@ -321,7 +338,10 @@ function endGame() {
 
   document.body.style.cursor = "default";
   document.body.classList.remove("noscroll");
+  document.body.classList.remove("playing");
   stopMusic();
+
+  ensureTop(); // keep header visible after game ends
 }
 
 function showModal(){ modal.classList.add("open"); }
@@ -409,7 +429,7 @@ function step() {
         comboEl.textContent = `x${multiplier}`;
         score += 1 * multiplier; scoreEl.textContent = score;
 
-        // SFX + particles (always inside the board)
+        // SFX + particles (inside the board)
         sfx.catch();
         spawnParticles(relX, relY, "#e74c3c");
       } else {
