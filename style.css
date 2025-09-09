@@ -178,7 +178,7 @@ button:disabled{ opacity:.65; cursor:not-allowed; }
 
 /* New High Score banner */
 .new-high-score{
-  display:none; font-size:1.1rem; font-weight:700; color:gold;
+  display:none; font-size:1.1rem; font-weight:700; color:#ff9800;
   text-shadow:0 0 10px rgba(255,152,0,.8), 0 0 20px rgba(255,152,0,.6);
   margin-bottom:10px; animation:pulse 1s infinite;
 }
