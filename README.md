@@ -54,9 +54,4 @@ Your goal is simple: move the paddle to **catch falling balls** — but beware, 
 ## 🚀 Setup / Run Instructions
 
 No build tools or frameworks required!  
-Just open `index.html` in your browser:
-
-```bash
-git clone https://github.com/<your-username>/catch-the-ball.git
-cd catch-the-ball
-open index.html   # or double-click the file
+Just open: https://saaquuiib.github.io/Pixel-Paddle/ and enjoy!
