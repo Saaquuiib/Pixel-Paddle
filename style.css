@@ -26,6 +26,12 @@ button, input, select, textarea, ::placeholder {
   padding: 12px 20px;
 }
 
+body.noscroll {
+  overflow: hidden;
+  height: 100%;
+}
+
+
 .container { text-align: center; }
 
 h1 {

@@ -41,21 +41,25 @@ let levelTick = null;
 let highScore = localStorage.getItem("catchBallHighScore") || 0;
 highScoreEl.textContent = highScore;
 
-// Init
-maxMissEl.textContent = MAX_MISSED;
+// Audio
+let audioCtx;
+function initAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+}
 
-// --- Sounds (Web Audio API) ---
 function playBeep(freq, duration, type="sine", delay=0) {
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
   osc.type = type;
   osc.frequency.value = freq;
   osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start(ctx.currentTime + delay);
-  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + delay + duration/1000);
-  osc.stop(ctx.currentTime + delay + duration/1000);
+  gain.connect(audioCtx.destination);
+  osc.start(audioCtx.currentTime + delay);
+  gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + delay + duration/1000);
+  osc.stop(audioCtx.currentTime + delay + duration/1000);
 }
 function playCatchSound() { playBeep(800, 120, "square"); }
 function playMissSound() { playBeep(200, 200, "sawtooth"); }
@@ -79,12 +83,17 @@ function movePaddle(clientX) {
   paddle.style.left = x + "px";
 }
 document.addEventListener("mousemove", (e) => movePaddle(e.clientX));
+
+// Prevent page scroll when playing
 gameArea.addEventListener("touchmove", (e) => {
-  if (e.touches[0]) movePaddle(e.touches[0].clientX);
-}, { passive: true });
+  if (e.touches[0]) {
+    movePaddle(e.touches[0].clientX);
+    e.preventDefault(); // stop vertical scroll
+  }
+}, { passive: false });
 
 // Start / Restart
-startBtn.addEventListener("click", startGame);
+startBtn.addEventListener("click", () => { initAudio(); startGame(); });
 restartBtn.addEventListener("click", () => { hideModal(); startGame(); });
 closeBtn.addEventListener("click", () => { hideModal(); resetUIOnly(); });
 
@@ -93,6 +102,7 @@ function startGame() {
   startBtn.textContent = "Game Running…";
   startBtn.disabled = true;
   document.body.style.cursor = "none";
+  document.body.classList.add("noscroll");
 
   spawnTick = setInterval(spawnBall, spawnRate);
   gameTick  = setInterval(step, TICK_MS);
@@ -118,6 +128,7 @@ function resetUIOnly() {
   startBtn.textContent = "Start Game";
   startBtn.disabled = false;
   document.body.style.cursor = "default";
+  document.body.classList.remove("noscroll");
 }
 
 function endGame() {
@@ -126,7 +137,6 @@ function endGame() {
   clearInterval(levelTick);
 
   let isNewHigh = false;
-
   if (score > highScore) {
     highScore = score;
     localStorage.setItem("catchBallHighScore", highScore);
@@ -148,6 +158,7 @@ function endGame() {
   showModal();
   playGameOverSound();
   document.body.style.cursor = "default";
+  document.body.classList.remove("noscroll");
 }
 
 function showModal() { modal.classList.add("open"); }
@@ -209,7 +220,6 @@ function levelUp() {
   clearInterval(spawnTick);
   spawnTick = setInterval(spawnBall, spawnRate);
 
-  // Shrink paddle
   let currentWidth = parseInt(paddle.style.width);
   let newWidth = Math.max(MIN_PADDLE_WIDTH, currentWidth - 10);
   paddle.style.width = newWidth + "px";
