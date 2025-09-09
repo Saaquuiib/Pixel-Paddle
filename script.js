@@ -215,13 +215,17 @@ function levelUp() {
   level++;
   levelEl.textContent = level;
 
+  // Increase ball speed
   fallSpeed += 1;
+
+  // Increase spawn rate
   spawnRate = Math.max(400, spawnRate - 150);
   clearInterval(spawnTick);
   spawnTick = setInterval(spawnBall, spawnRate);
 
+  // Gradually shrink paddle (more forgiving)
   let currentWidth = parseInt(paddle.style.width);
-  let newWidth = Math.max(MIN_PADDLE_WIDTH, currentWidth - 10);
+  let newWidth = Math.max(40, currentWidth - 4); // min width = 40px
   paddle.style.width = newWidth + "px";
 
   playLevelUpSound();
