@@ -26,7 +26,9 @@ const volumeSlider = document.getElementById("volume");
 const muteToggle   = document.getElementById("muteToggle");
 const diffRadios   = [...document.querySelectorAll('input[name="difficulty"]')];
 
-// ---------- Mobile viewport fix ----------
+const hud = document.querySelector('.info');
+
+// ---------- Mobile viewport & HUD gap ----------
 function setVh() {
   const vh = window.innerHeight * 0.01;
   document.documentElement.style.setProperty('--vh', `${vh}px`);
@@ -39,6 +41,20 @@ function ensureTop() {
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   window.scrollTo(0, 0);
 }
+
+function isMobile() {
+  return window.matchMedia('(max-width: 768px)').matches;
+}
+
+/* Set --hudGap to HUD height when playing on mobile, else 0 */
+function updateHudGap() {
+  const gap = (document.body.classList.contains('playing') && isMobile() && hud)
+    ? (hud.offsetHeight + 12)   // little breathing room
+    : 0;
+  document.documentElement.style.setProperty('--hudGap', `${gap}px`);
+}
+window.addEventListener('resize', updateHudGap);
+window.addEventListener('orientationchange', updateHudGap);
 
 // ---------- Config ----------
 let MAX_MISSED = 3;
@@ -163,7 +179,6 @@ function scheduleClap(when){
 }
 
 const sfx = {
-  // sound-only catch; particles are spawned with local coords in the catch branch
   catch: ()=> { beep(860+rnd(30), 110, "square", .18); beep(1720+rnd(40), 90, "triangle", .10); },
   miss:  ()=> { beep(200+rnd(10), 220, "sawtooth", .22); },
   over:  ()=> { beep(120, 500, "triangle", .25); },
@@ -288,6 +303,7 @@ function startGame() {
   document.body.style.cursor = "none";
   document.body.classList.add("noscroll");   // lock scroll on mobile
   document.body.classList.add("playing");
+  updateHudGap(); // ensure board clears the HUD
 
   paused = false;
   pauseOverlay.classList.remove("show");
@@ -318,6 +334,7 @@ function resetUIOnly() {
   document.body.classList.remove("noscroll");
   document.body.classList.remove("playing");
   stopMusic();
+  updateHudGap(); // collapse gap
 }
 
 function endGame() {
@@ -340,6 +357,7 @@ function endGame() {
   document.body.classList.remove("noscroll");
   document.body.classList.remove("playing");
   stopMusic();
+  updateHudGap(); // collapse gap
 
   ensureTop(); // keep header visible after game ends
 }

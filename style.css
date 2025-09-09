@@ -7,7 +7,8 @@
   --hazard:#ff5252;
   --text:#ffffff;
   --shadow:0 12px 28px rgba(0,0,0,.35);
-  --vh: 1vh; /* JS updates this for mobile safe viewport */
+  --vh: 1vh;          /* JS updates for mobile safe viewport */
+  --hudGap: 0px;      /* JS updates to HUD height when playing on mobile */
 }
 
 * { box-sizing: border-box; }
@@ -62,7 +63,8 @@ h1 .title{ line-height: 1; }
   position:relative;
   width:540px; max-width:92vw; aspect-ratio:4/5;
   background:var(--board); border-radius:16px; box-shadow:var(--shadow);
-  overflow:hidden; margin:0 auto 8px;
+  overflow:hidden;
+  margin: 0 auto calc(8px + var(--hudGap, 0px)); /* dynamic gap below for HUD */
 }
 
 /* Stable CRT scanlines + vignette directly on the board */
@@ -224,7 +226,7 @@ button:disabled{ opacity:.65; cursor:not-allowed; }
   .container { padding-top: 64px; } /* space under sticky title */
 
   /* Game area sits between title and bottom overlay */
-  #gameArea { margin: 8px auto; }
+  #gameArea { margin: 8px auto calc(8px + var(--hudGap, 0px)); }
 
   /* HUD becomes a floating overlay; doesn't affect page height */
   .info{
@@ -239,7 +241,12 @@ button:disabled{ opacity:.65; cursor:not-allowed; }
     padding: 8px 10px;
     gap: 12px;
     justify-content: space-between;
+
+    /* don't block game touches except on HUD content */
+    pointer-events: none;
   }
+  .info > * { pointer-events: auto; }
+
   .info p{ margin: 0; font-size: 12px; }
   .controls{ gap: 8px; }
   .controls button{ padding: 8px 10px; font-size: 12px; }
