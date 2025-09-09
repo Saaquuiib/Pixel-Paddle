@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Catch the Ball</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="container">
+    <h1>Pixel Paddle</h1>
+
+    <div id="gameArea">
+      <div id="paddle"></div>
+    </div>
+
+    <div class="info">
+      <p>Score: <span id="score">0</span></p>
+      <p>Missed: <span id="missed">0</span>/<span id="maxMiss">3</span></p>
+      <p>Level: <span id="level">1</span></p>
+      <p>High Score: <span id="highScore">0</span></p>
+      <button id="startBtn" type="button">Start Game</button>
+    </div>
+  </main>
+
+  <!-- Game Over Modal -->
+  <div id="gameOverModal" class="modal">
+    <div class="modal__card">
+      <h2 id="modalTitle">Game Over!</h2>
+      <div id="newHighScoreBanner" class="new-high-score">🏆 New High Score!</div>
+      <p>Your final score: <strong id="finalScore">0</strong></p>
+      <p>🏆 High score: <strong id="modalHighScore">0</strong></p>
+      <div class="modal__actions">
+        <button id="restartBtn" class="btn-primary" type="button">Play Again</button>
+        <button id="closeBtn" class="btn-ghost" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js" defer></script>
+</body>
+</html>
