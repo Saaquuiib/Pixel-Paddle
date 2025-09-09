@@ -51,7 +51,7 @@ Your goal is simple: move the paddle to **catch falling balls** — but beware, 
 
 ---
 
-## 🚀 Setup / Run Instructions
+## 🎮 Play Online
 
-No build tools or frameworks required!  
-Just open: https://saaquuiib.github.io/Pixel-Paddle/ and enjoy!
+No need to download — play directly on GitHub Pages:  
+👉 [Play Pixel Paddle](https://saaquuiib.github.io/Pixel-Paddle/)
