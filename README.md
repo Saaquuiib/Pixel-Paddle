@@ -55,3 +55,12 @@ Your goal is simple: move the paddle to **catch falling balls** — but beware, 
 
 No need to download — play directly on GitHub Pages:  
 👉 [Play Pixel Paddle](https://saaquuiib.github.io/Pixel-Paddle/)
+
+
+## 📜 License
+
+This project is released under the MIT License — free to use, modify, and share.
+
+## 👾 Author
+
+Made with ❤️ by Saaquib Rahman
