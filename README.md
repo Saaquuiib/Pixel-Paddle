@@ -1,4 +1,4 @@
-<img width="832" height="871" alt="image" src="https://github.com/user-attachments/assets/4998f5f6-f60e-4634-8f96-9022dcd7ec27" /># 🎮 Catch the Ball
+🎮 Pixel Paddle
 
 A retro-inspired **arcade mini-game** built with **HTML, CSS, and JavaScript**.  
 Your goal is simple: move the paddle to **catch falling balls** — but beware, the game gets harder the longer you survive!
