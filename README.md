@@ -44,6 +44,10 @@ Your goal is simple: move the paddle to **catch falling balls** — but beware, 
 ## 🖼️ Screenshots
 
 <img width="832" height="871" alt="image" src="https://github.com/user-attachments/assets/0d9cb45d-adcd-4cb9-b6b1-e40125b56240" />
+<img width="854" height="852" alt="image" src="https://github.com/user-attachments/assets/5ad918b7-7560-4a2b-a09a-f8adeccda1d6" />
+<img width="833" height="814" alt="image" src="https://github.com/user-attachments/assets/d948accb-ca74-4015-9718-75b20c1dfb05" />
+
+
 
 
 ---
