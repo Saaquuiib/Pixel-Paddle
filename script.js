@@ -27,16 +27,6 @@ const muteToggle   = document.getElementById("muteToggle");
 const diffRadios   = [...document.querySelectorAll('input[name="difficulty"]')];
 
 const hud = document.querySelector('.info');
-const titleEl = document.querySelector('h1');
-
-// ---------- Tag stat <p> for layout control on mobile ----------
-(function tagStats(){
-  const tryAdd = (el, cls) => { if (el && el.closest) el.closest('p')?.classList.add(...cls); };
-  tryAdd(scoreEl,  ['stat-left']);
-  tryAdd(levelEl,  ['stat-left']);
-  tryAdd(missedEl, ['stat-right']);
-  tryAdd(comboEl,  ['stat-right']);
-})();
 
 // ---------- Make Settings a compact cog icon ----------
 (function makeSettingsIcon(){
@@ -60,7 +50,7 @@ const titleEl = document.querySelector('h1');
     </svg>`;
 })();
 
-// ---------- Mobile viewport & dynamic gaps ----------
+// ---------- Mobile viewport & HUD gap ----------
 function setVh() {
   const vh = window.innerHeight * 0.01;
   document.documentElement.style.setProperty('--vh', `${vh}px`);
@@ -73,19 +63,18 @@ function ensureTop() {
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   window.scrollTo(0, 0);
 }
+
 function isMobile() { return window.matchMedia('(max-width: 768px)').matches; }
 
-/* Set --hudGap to HUD height and mirror it to --topGap on mobile while playing */
-function updateOverlayGaps() {
-  const playing = document.body.classList.contains('playing');
-  const hudGap = (playing && isMobile() && hud) ? (hud.offsetHeight + 12) : 0;
-  document.documentElement.style.setProperty('--hudGap', `${hudGap}px`);
-  /* mirror top spacing so board has equal gap above & below */
-  const topGap = (playing && isMobile()) ? hudGap : 0;
-  document.documentElement.style.setProperty('--topGap', `${topGap}px`);
+/* Set --hudGap to HUD height when playing on mobile, else 0 */
+function updateHudGap() {
+  const gap = (document.body.classList.contains('playing') && isMobile() && hud)
+    ? (hud.offsetHeight + 12)   // little breathing room
+    : 0;
+  document.documentElement.style.setProperty('--hudGap', `${gap}px`);
 }
-window.addEventListener('resize', updateOverlayGaps);
-window.addEventListener('orientationchange', updateOverlayGaps);
+window.addEventListener('resize', updateHudGap);
+window.addEventListener('orientationchange', updateHudGap);
 
 // ---------- Config ----------
 let MAX_MISSED = 3;
@@ -94,6 +83,7 @@ const PADDLE_H   = 16;
 const INITIAL_PADDLE_WIDTH = 100;
 const MIN_PADDLE_WIDTH = 40;
 
+// difficulty-tuned at runtime
 let BASE_SPEED = 5;
 let BASE_SPAWN = 1200;
 let SPEED_INC  = 1.0;
@@ -105,15 +95,17 @@ let score = 0, missed = 0, level = 1;
 let fallSpeed = BASE_SPEED, spawnRate = BASE_SPAWN;
 let gameTick = null, spawnTick = null, levelTick = null, paused = false;
 
+// combos
 let streak = 0, multiplier = 1;
 
+// High score
 let highScore = Number(localStorage.getItem("pixelPaddleHighScore")) || 0;
 maxMissEl.textContent = MAX_MISSED;
 
 // ---------- Audio ----------
 let audioCtx, masterGain;
 let musicTimer = null;
-let noiseBuf = null;
+let noiseBuf = null; // reused for hats/snare/clap
 
 const settings = {
   volume: Number(localStorage.getItem("pp_volume") ?? 70),
@@ -134,77 +126,127 @@ function setVolumeFromSettings(){
 }
 function rnd(n){ return (Math.random()*2-1)*n; }
 
-/* quick synth helpers */
+/* basic beep (immediate) */
 function beep(freq, durMs, type="square", vol=0.25, detune=0){
   if (!audioCtx) return;
-  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-  o.type = type; o.frequency.value = freq; o.detune.value = detune;
-  g.gain.value = vol; o.connect(g); g.connect(masterGain);
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type; osc.frequency.value = freq; osc.detune.value = detune;
+  gain.gain.value = vol; osc.connect(gain); gain.connect(masterGain);
   const t = audioCtx.currentTime;
-  o.start(t); g.gain.exponentialRampToValueAtTime(0.0001, t + durMs/1000); o.stop(t + durMs/1000);
+  osc.start(t);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + durMs/1000);
+  osc.stop(t + durMs/1000);
 }
+
+/* schedule beep at time (seconds from now) — used by music */
 function beepAt(freq, durMs, whenSec, type="square", vol=0.12, detune=0){
   if (!audioCtx) return;
   const t = audioCtx.currentTime + whenSec;
-  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-  o.type = type; o.frequency.value = freq; o.detune.value = detune;
-  g.gain.value = vol; o.connect(g); g.connect(masterGain);
-  o.start(t); g.gain.exponentialRampToValueAtTime(0.0001, t + durMs/1000); o.stop(t + durMs/1000);
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type; osc.frequency.value = freq; osc.detune.value = detune;
+  gain.gain.value = vol; osc.connect(gain); gain.connect(masterGain);
+  osc.start(t);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + durMs/1000);
+  osc.stop(t + durMs/1000);
 }
+
 /* noise buffer for hats/snare/clap */
 function ensureNoiseBuffer(){
   if (noiseBuf || !audioCtx) return;
   noiseBuf = audioCtx.createBuffer(1, audioCtx.sampleRate, audioCtx.sampleRate);
-  const d = noiseBuf.getChannelData(0); for (let i=0;i<d.length;i++) d[i] = Math.random()*2-1;
+  const data = noiseBuf.getChannelData(0);
+  for (let i=0;i<data.length;i++) data[i] = Math.random()*2-1;
 }
-function noiseHit(when, dur, type, freq, q, gainLevel){
+function noiseHit(when, duration, type, freq, q, gainLevel){
   ensureNoiseBuffer();
-  const src = audioCtx.createBufferSource(); src.buffer = noiseBuf;
-  const f = audioCtx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
-  const g = audioCtx.createGain(); g.gain.setValueAtTime(gainLevel, when); g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
-  src.connect(f); f.connect(g); g.connect(masterGain); src.start(when); src.stop(when + dur);
+  const src = audioCtx.createBufferSource();
+  src.buffer = noiseBuf;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = type; filter.frequency.value = freq; filter.Q.value = q;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(gainLevel, when);
+  g.gain.exponentialRampToValueAtTime(0.0001, when + duration);
+  src.connect(filter); filter.connect(g); g.connect(masterGain);
+  src.start(when); src.stop(when + duration);
 }
-/* drum kit */
-function scheduleKick(when){ if (!audioCtx) return;
-  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-  o.type="sine"; o.frequency.setValueAtTime(120,when); o.frequency.exponentialRampToValueAtTime(45,when+0.13);
-  g.gain.setValueAtTime(0.25,when); g.gain.exponentialRampToValueAtTime(0.0001,when+0.14);
-  o.connect(g); g.connect(masterGain); o.start(when); o.stop(when+0.15);
-}
-function scheduleSnare(when){ noiseHit(when,0.10,"highpass",1800,0.7,0.18); noiseHit(when,0.10,"bandpass",3300,1.2,0.12); }
-function scheduleHat(when,open=false){ if(open) noiseHit(when,0.18,"highpass",7000,0.8,0.08); else noiseHit(when,0.04,"highpass",8000,0.9,0.06); }
-function scheduleClap(when){ noiseHit(when,0.07,"bandpass",2000,1.8,0.12); noiseHit(when+0.03,0.07,"bandpass",2000,1.8,0.08); }
 
+/* Drum kit + SFX definitions omitted for brevity — they remain the same as your last version */
+function scheduleKick(when){
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const g   = audioCtx.createGain();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(120, when);
+  osc.frequency.exponentialRampToValueAtTime(45, when + 0.13);
+  g.gain.setValueAtTime(0.25, when);
+  g.gain.exponentialRampToValueAtTime(0.0001, when + 0.14);
+  osc.connect(g); g.connect(masterGain);
+  osc.start(when); osc.stop(when + 0.15);
+}
+function scheduleSnare(when){
+  noiseHit(when, 0.10, "highpass", 1800, 0.7, 0.18);
+  noiseHit(when, 0.10, "bandpass", 3300, 1.2, 0.12);
+}
+function scheduleHat(when, open=false){
+  if (open) noiseHit(when, 0.18, "highpass", 7000, 0.8, 0.08);
+  else      noiseHit(when, 0.04, "highpass", 8000, 0.9, 0.06);
+}
+function scheduleClap(when){
+  noiseHit(when,      0.07, "bandpass", 2000, 1.8, 0.12);
+  noiseHit(when+0.03, 0.07, "bandpass", 2000, 1.8, 0.08);
+}
 const sfx = {
-  catch: ()=> { beep(860+rnd(30),110,"square",.18); beep(1720+rnd(40),90,"triangle",.10); },
-  miss : ()=> { beep(200+rnd(10),220,"sawtooth",.22); },
-  over : ()=> { beep(120,500,"triangle",.25); },
-  level: ()=> { beep(500,90,"square",.2); setTimeout(()=>beep(700,90,"square",.2),120); setTimeout(()=>beep(900,120,"square",.22),240); },
-  newHS: ()=> { beep(600,180,"square",.22); setTimeout(()=>beep(800,180,"square",.22),140); setTimeout(()=>beep(1000,260,"sine",.22),280); },
-  expand:()=> { beep(520,120,"square",.2); setTimeout(()=>beep(780,120,"square",.2),100); },
-  slow  :()=> { beep(300,300,"sine",.18); },
-  coin  :()=> { beep(1000,90,"triangle",.22); },
-  life  :()=> { beep(640,160,"square",.22); },
-  bomb  :()=> { beep(160,180,"sawtooth",.26); },
-  pause :()=> { beep(750,90,"sine",.18); setTimeout(()=>beep(420,120,"sine",.18),90); },
-  resume:()=> { beep(420,90,"sine",.18); setTimeout(()=>beep(820,130,"sine",.20),95); }
+  catch: ()=> { beep(860+rnd(30), 110, "square", .18); beep(1720+rnd(40), 90, "triangle", .10); },
+  miss:  ()=> { beep(200+rnd(10), 220, "sawtooth", .22); },
+  over:  ()=> { beep(120, 500, "triangle", .25); },
+  level: ()=> { beep(500, 90, "square", .2); setTimeout(()=>beep(700, 90, "square", .2),120); setTimeout(()=>beep(900,120,"square", .22),240); },
+  newHS: ()=> { beep(600,180,"square", .22); setTimeout(()=>beep(800,180,"square", .22),140); setTimeout(()=>beep(1000,260,"sine", .22),280); },
+  expand:()=> { beep(520,120,"square", .2); setTimeout(()=>beep(780,120,"square", .2),100); },
+  slow:  ()=> { beep(300,300,"sine", .18); },
+  coin:  ()=> { beep(1000,90,"triangle", .22); },
+  life:  ()=> { beep(640,160,"square", .22); },
+  bomb:  ()=> { beep(160,180,"sawtooth", .26); },
+  pause: ()=> { beep(750,90,"sine", .18); setTimeout(()=>beep(420,120,"sine", .18),90); },
+  resume:()=> { beep(420,90,"sine", .18); setTimeout(()=>beep(820,130,"sine", .20),95); }
 };
 
-/* groovy music loop (132 BPM with swing) */
+/* ---- GROOVY MUSIC LOOP ---- */
 function startMusic(){
-  stopMusic(); if (!audioCtx) return;
-  const BPM = 132, beat = 60/BPM, step = beat/4, swing = step*0.12; let i=0;
-  musicTimer = setInterval(()=>{
-    const t = audioCtx.currentTime + 0.035 + ((i%2)?swing:0), pos = i%16;
-    if ([0,4,8,12].includes(pos)) scheduleKick(t); if (pos===14) scheduleKick(t);
-    if (pos===4||pos===12) scheduleSnare(t); if (pos===12) scheduleClap(t+0.01);
-    scheduleHat(t, (pos===7||pos===15));
-    const bass=[65,49,58,49,65,78,98,58];
-    if (pos%2===0) beepAt(bass[(pos/2)%bass.length], step*800, 0, "square", .08, rnd(5));
-    i++;
-  }, step*1000);
+  stopMusic();
+  if (!audioCtx) return;
+
+  const BPM = 132;
+  const beat = 60 / BPM;
+  const step = beat / 4;
+  const swing = step * 0.12;
+  let stepIdx = 0;
+
+  musicTimer = setInterval(() => {
+    const withinStep = (stepIdx % 2 === 1) ? swing : 0;
+    const t = audioCtx.currentTime + 0.035 + withinStep;
+    const pos = stepIdx % 16;
+
+    if ([0,4,8,12].includes(pos)) scheduleKick(t);
+    if (pos === 14) scheduleKick(t);
+
+    if (pos === 4 || pos === 12) scheduleSnare(t);
+    if (pos === 12) scheduleClap(t + 0.01);
+
+    const open = (pos === 7 || pos === 15);
+    scheduleHat(t, open);
+
+    const bassNotes = [65, 49, 58, 49, 65, 78, 98, 58];
+    if (pos % 2 === 0) {
+      const n = bassNotes[(pos/2) % bassNotes.length];
+      beepAt(n, step*800, 0, "square", .08, rnd(5));
+    }
+
+    stepIdx++;
+  }, step * 1000);
 }
-function stopMusic(){ if (musicTimer){ clearInterval(musicTimer); musicTimer=null; } }
+function stopMusic(){ if (musicTimer){ clearInterval(musicTimer); musicTimer = null; } }
 
 // ---------- Controls ----------
 function movePaddle(clientX) {
@@ -214,15 +256,21 @@ function movePaddle(clientX) {
   paddle.style.left = x + "px";
 }
 document.addEventListener("mousemove", (e) => !paused && movePaddle(e.clientX));
-gameArea.addEventListener("touchmove", (e) => { if (e.touches[0]) { !paused && movePaddle(e.touches[0].clientX); e.preventDefault(); } }, { passive: false });
+gameArea.addEventListener("touchmove", (e) => {
+  if (e.touches[0]) { !paused && movePaddle(e.touches[0].clientX); e.preventDefault(); }
+}, { passive: false });
 
 startBtn.addEventListener("click", () => { initAudio(); applySettingsToUI(); startGame(); });
 pauseBtn.addEventListener("click", togglePause);
 settingsBtn.addEventListener("click", openSettings);
-document.addEventListener("keydown", (e)=>{ if (e.key === "Escape") togglePause(); });
+
+// Esc to pause/resume
+document.addEventListener("keydown", (e)=>{
+  if (e.key === "Escape") togglePause();
+});
 
 restartBtn.addEventListener("click", () => { hideModal(); startGame(); });
-closeBtn  .addEventListener("click", () => { hideModal(); resetUIOnly(); });
+closeBtn.addEventListener("click", () => { hideModal(); resetUIOnly(); });
 
 // ---------- Settings ----------
 function openSettings(){
@@ -235,7 +283,8 @@ settingsCancelBtn.addEventListener("click", ()=>settingsModal.classList.remove("
 settingsSaveBtn.addEventListener("click", ()=>{
   settings.volume = Number(volumeSlider.value);
   settings.muted  = muteToggle.checked;
-  const chosen = diffRadios.find(r=>r.checked); if (chosen) settings.difficulty = chosen.value;
+  const chosen = diffRadios.find(r=>r.checked);
+  if (chosen) settings.difficulty = chosen.value;
   localStorage.setItem("pp_volume", String(settings.volume));
   localStorage.setItem("pp_muted", settings.muted ? "1":"0");
   localStorage.setItem("pp_diff", settings.difficulty);
@@ -244,27 +293,38 @@ settingsSaveBtn.addEventListener("click", ()=>{
 });
 
 function applySettingsToUI(){
-  if (settings.difficulty === "easy"){ BASE_SPEED=4; BASE_SPAWN=1400; SPEED_INC=0.8; SPAWN_DEC=120; }
-  else if (settings.difficulty === "hard"){ BASE_SPEED=6; BASE_SPAWN=1000; SPEED_INC=1.2; SPAWN_DEC=180; }
-  else { BASE_SPEED=5; BASE_SPAWN=1200; SPEED_INC=1.0; SPAWN_DEC=150; }
+  if (settings.difficulty === "easy"){
+    BASE_SPEED = 4; BASE_SPAWN = 1400; SPEED_INC = 0.8; SPAWN_DEC = 120;
+  } else if (settings.difficulty === "hard"){
+    BASE_SPEED = 6; BASE_SPAWN = 1000; SPEED_INC = 1.2; SPAWN_DEC = 180;
+  } else {
+    BASE_SPEED = 5; BASE_SPAWN = 1200; SPEED_INC = 1.0; SPAWN_DEC = 150;
+  }
   setVolumeFromSettings();
 }
 
 // ---------- Lifecycle ----------
 function startGame() {
-  ensureTop(); applySettingsToUI(); resetGameState();
+  ensureTop();
+  applySettingsToUI();
+  resetGameState();
 
-  startBtn.textContent = "Game Running…"; startBtn.disabled = true;
+  startBtn.textContent = "Game Running…";
+  startBtn.disabled = true;
   pauseBtn.disabled = false;
 
   document.body.style.cursor = "none";
-  document.body.classList.add("noscroll","playing");
-  updateOverlayGaps();
+  document.body.classList.add("noscroll");
+  document.body.classList.add("playing");
+  updateHudGap();
 
-  paused = false; pauseOverlay.classList.remove("show");
+  paused = false;
+  pauseOverlay.classList.remove("show");
+
   spawnTick = setInterval(spawnEntity, spawnRate);
   gameTick  = setInterval(step, TICK_MS);
   levelTick = setInterval(levelUp, 20000);
+
   startMusic();
 }
 
@@ -278,49 +338,101 @@ function resetGameState() {
 }
 
 function resetUIOnly() {
-  startBtn.textContent = "Start Game"; startBtn.disabled = false;
-  pauseBtn.disabled = true; pauseBtn.textContent = "Pause";
+  startBtn.textContent = "Start Game";
+  startBtn.disabled = false;
+  pauseBtn.disabled = true;
+  pauseBtn.textContent = "Pause";
 
   document.body.style.cursor = "default";
-  document.body.classList.remove("noscroll","playing");
-  stopMusic(); updateOverlayGaps();
+  document.body.classList.remove("noscroll");
+  document.body.classList.remove("playing");
+  stopMusic();
+  updateHudGap();
 }
 
 function endGame() {
   clearInterval(spawnTick); clearInterval(gameTick); clearInterval(levelTick);
 
   if (score > highScore) {
-    highScore = score; localStorage.setItem("pixelPaddleHighScore", String(highScore));
-    newHighScoreBanner.style.display = "block"; launchConfetti(); sfx.newHS();
-  } else { newHighScoreBanner.style.display = "none"; }
+    highScore = score;
+    localStorage.setItem("pixelPaddleHighScore", String(highScore));
+    newHighScoreBanner.style.display = "block";
+    launchConfetti(); sfx.newHS();
+  } else {
+    newHighScoreBanner.style.display = "none";
+  }
 
-  finalScore.textContent = score; modalHighScore.textContent = highScore;
+  finalScore.textContent = score;
+  modalHighScore.textContent = highScore;
   sfx.over(); showModal();
 
   document.body.style.cursor = "default";
-  document.body.classList.remove("noscroll","playing");
-  stopMusic(); updateOverlayGaps(); ensureTop();
+  document.body.classList.remove("noscroll");
+  document.body.classList.remove("playing");
+  stopMusic();
+  updateHudGap();
+
+  ensureTop();
 }
 
 function showModal(){ modal.classList.add("open"); }
 function hideModal(){ modal.classList.remove("open"); }
 
 function togglePause(){
-  if (startBtn.disabled === false) return;
-  paused = !paused; pauseBtn.textContent = paused ? "Resume" : "Pause";
+  if (startBtn.disabled === false) return; // game not running
+  paused = !paused;
+  pauseBtn.textContent = paused ? "Resume" : "Pause";
   pauseOverlay.classList.toggle("show", paused);
-  if (paused){ clearInterval(spawnTick); clearInterval(gameTick); clearInterval(levelTick); sfx.pause(); stopMusic(); }
-  else { spawnTick=setInterval(spawnEntity,spawnRate); gameTick=setInterval(step,TICK_MS); levelTick=setInterval(levelUp,20000); sfx.resume(); startMusic(); }
+
+  if (paused){
+    clearInterval(spawnTick); clearInterval(gameTick); clearInterval(levelTick);
+    sfx.pause();
+    stopMusic();
+  } else {
+    spawnTick = setInterval(spawnEntity, spawnRate);
+    gameTick  = setInterval(step, TICK_MS);
+    levelTick = setInterval(levelUp, 20000);
+    sfx.resume();
+    startMusic();
+  }
 }
 
 // ---------- Spawning ----------
-function spawnEntity(){ const r=Math.random(); if (r<0.07){spawnPowerUp();return;} if (r<0.12){spawnHazard();return;} spawnBall(); }
-function spawnBall(){ const el=document.createElement("div"); el.className="ball"; el.style.left=(Math.random()*(gameArea.clientWidth-20))+"px"; el.style.top="0px"; gameArea.appendChild(el); }
-function spawnPowerUp(){ const t=["expand","slow","coin","life"][Math.floor(Math.random()*4)]; const el=document.createElement("div"); el.className="powerup "+t; el.style.left=(Math.random()*(gameArea.clientWidth-20))+"px"; el.style.top="0px"; gameArea.appendChild(el); }
-function spawnHazard(){ const el=document.createElement("div"); el.className="hazard bomb"; el.style.left=(Math.random()*(gameArea.clientWidth-22))+"px"; el.style.top="0px"; gameArea.appendChild(el); }
+function spawnEntity() {
+  const r = Math.random();
+  if (r < 0.07) { spawnPowerUp(); return; }      // 7% power-up
+  if (r < 0.12) { spawnHazard();  return; }      // 5% hazard
+  spawnBall();
+}
+function spawnBall() {
+  const ball = document.createElement("div");
+  ball.className = "ball";
+  const x = Math.random() * (gameArea.clientWidth - BALL_SIZE);
+  ball.style.left = x + "px";
+  ball.style.top  = "0px";
+  gameArea.appendChild(ball);
+}
+function spawnPowerUp() {
+  const types = ["expand","slow","coin","life"];
+  const type = types[Math.floor(Math.random() * types.length)];
+  const pu = document.createElement("div");
+  pu.className = "powerup " + type;
+  const x = Math.random() * (gameArea.clientWidth - 20);
+  pu.style.left = x + "px";
+  pu.style.top  = "0px";
+  gameArea.appendChild(pu);
+}
+function spawnHazard() {
+  const hz = document.createElement("div");
+  hz.className = "hazard bomb";
+  const x = Math.random() * (gameArea.clientWidth - 22);
+  hz.style.left = x + "px";
+  hz.style.top  = "0px";
+  gameArea.appendChild(hz);
+}
 
-// ---------- Step (crossing-based collisions) ----------
-const BALL_W = 20, BALL_H = 20;
+// ---------- Game loop (crossing-based collisions) ----------
+const BALL_W = BALL_SIZE, BALL_H = BALL_SIZE;
 function step() {
   if (paused) return;
 
@@ -333,101 +445,164 @@ function step() {
   // Balls
   [...gameArea.querySelectorAll(".ball")].forEach(ball => {
     const prevY = parseFloat(ball.style.top) || 0;
-    const newY  = prevY + fallSpeed; ball.style.top = newY + "px";
+    const newY  = prevY + fallSpeed;
+    ball.style.top = newY + "px";
+
     const left  = parseFloat(ball.style.left) || 0;
     const right = left + BALL_W;
-    const crossed = (prevY + BALL_H <= padTop) && (newY + BALL_H >= padTop);
-    const overlap = (left < padRight) && (right > padLeft);
+    const crossedPadTop = (prevY + BALL_H <= padTop) && (newY + BALL_H >= padTop);
+    const horizontalOverlap = (left < padRight) && (right > padLeft);
 
-    if (crossed && overlap) {
-      const relX = left + BALL_W/2, relY = padTop;
-      streak++; multiplier = Math.min(5, 1 + Math.floor(streak/5)); comboEl.textContent = `x${multiplier}`;
-      score += 1*multiplier; scoreEl.textContent = score;
-      sfx.catch(); spawnParticles(relX, relY, "#e74c3c"); ball.remove(); return;
+    if (crossedPadTop && horizontalOverlap) {
+      const relX = left + BALL_W/2;
+      const relY = padTop;
+      streak++;
+      multiplier = Math.min(5, 1 + Math.floor(streak / 5));
+      comboEl.textContent = `x${multiplier}`;
+      score += 1 * multiplier; scoreEl.textContent = score;
+      sfx.catch();
+      spawnParticles(relX, relY, "#e74c3c");
+      ball.remove();
+      return;
     }
+
     if (newY >= gameArea.clientHeight - BALL_H) {
-      streak=0; multiplier=1; comboEl.textContent="x1";
-      missed++; missedEl.textContent=missed; sfx.miss();
-      gameArea.classList.add("shake"); setTimeout(()=>gameArea.classList.remove("shake"),320);
-      paddle.classList.add("flash"); setTimeout(()=>paddle.classList.remove("flash"),180);
-      ball.remove(); if (missed>=MAX_MISSED) endGame();
+      streak = 0; multiplier = 1; comboEl.textContent = "x1";
+      missed++; missedEl.textContent = missed; sfx.miss();
+      gameArea.classList.add("shake"); setTimeout(()=>gameArea.classList.remove("shake"), 320);
+      paddle.classList.add("flash"); setTimeout(()=>paddle.classList.remove("flash"), 180);
+      ball.remove();
+      if (missed >= MAX_MISSED) { endGame(); }
     }
   });
 
   // Power-ups
-  [...gameArea.querySelectorAll(".powerup")].forEach(pu=>{
-    const prevY=parseFloat(pu.style.top)||0, newY=prevY+fallSpeed; pu.style.top=newY+"px";
-    const left=parseFloat(pu.style.left)||0, right=left+20;
-    const crossed=(prevY+20<=padTop)&&(newY+20>=padTop), overlap=(left<padRight)&&(right>padLeft);
-    if (crossed&&overlap){ applyPowerUp(pu.classList[1]); pu.remove(); return; }
-    if (newY>=gameArea.clientHeight-20) pu.remove();
+  [...gameArea.querySelectorAll(".powerup")].forEach(pu => {
+    const prevY = parseFloat(pu.style.top) || 0;
+    const newY  = prevY + fallSpeed;
+    pu.style.top = newY + "px";
+
+    const left   = parseFloat(pu.style.left) || 0;
+    const right  = left + 20;
+    const crossedPadTop = (prevY + 20 <= padTop) && (newY + 20 >= padTop);
+    const horizontalOverlap = (left < padRight) && (right > padLeft);
+
+    if (crossedPadTop && horizontalOverlap) {
+      applyPowerUp(pu.classList[1]);
+      pu.remove();
+      return;
+    }
+
+    if (newY >= gameArea.clientHeight - 20) pu.remove();
   });
 
   // Hazards
-  [...gameArea.querySelectorAll(".hazard")].forEach(hz=>{
-    const prevY=parseFloat(hz.style.top)||0, newY=prevY+fallSpeed+1; hz.style.top=newY+"px";
-    const left=parseFloat(hz.style.left)||0, right=left+22;
-    const crossed=(prevY+22<=padTop)&&(newY+22>=padTop), overlap=(left<padRight)&&(right>padLeft);
-    if (crossed&&overlap){
-      sfx.bomb(); streak=0; multiplier=1; comboEl.textContent="x1"; missed++; missedEl.textContent=missed;
-      gameArea.classList.add("shake"); setTimeout(()=>gameArea.classList.remove("shake"),320);
-      paddle.classList.add("flash"); setTimeout(()=>paddle.classList.remove("flash"),180);
-      hz.remove(); if (missed>=MAX_MISSED) endGame(); return;
+  [...gameArea.querySelectorAll(".hazard")].forEach(hz => {
+    const prevY = parseFloat(hz.style.top) || 0;
+    const newY  = prevY + fallSpeed + 1;
+    hz.style.top = newY + "px";
+
+    const left   = parseFloat(hz.style.left) || 0;
+    const right  = left + 22;
+    const crossedPadTop = (prevY + 22 <= padTop) && (newY + 22 >= padTop);
+    const horizontalOverlap = (left < padRight) && (right > padLeft);
+
+    if (crossedPadTop && horizontalOverlap) {
+      sfx.bomb();
+      streak = 0; multiplier = 1; comboEl.textContent = "x1";
+      missed++; missedEl.textContent = missed;
+      gameArea.classList.add("shake"); setTimeout(()=>gameArea.classList.remove("shake"), 320);
+      paddle.classList.add("flash"); setTimeout(()=>paddle.classList.remove("flash"), 180);
+      hz.remove();
+      if (missed >= MAX_MISSED) { endGame(); }
+      return;
     }
-    if (newY>=gameArea.clientHeight-22) hz.remove();
+
+    if (newY >= gameArea.clientHeight - 22) hz.remove();
   });
 }
 
-// ---------- Power-ups ----------
+// ---------- Power-up effects ----------
 function applyPowerUp(type) {
-  if (type==="expand"){
+  if (type === "expand") {
     sfx.expand();
-    const cur=parseInt(paddle.style.width); paddle.style.width=Math.min(cur*1.5, INITIAL_PADDLE_WIDTH*2)+"px";
-    setTimeout(()=>{ paddle.style.width=Math.max(MIN_PADDLE_WIDTH, parseInt(paddle.style.width)/1.5)+"px"; }, 10000);
-  } else if (type==="slow"){
-    sfx.slow(); fallSpeed=Math.max(2, fallSpeed/2); setTimeout(()=>{ fallSpeed=Math.max(2, fallSpeed*2); }, 5000);
-  } else if (type==="coin"){
-    sfx.coin(); score+=10*multiplier; scoreEl.textContent=score;
-  } else if (type==="life"){
-    sfx.life(); if (missed>0){ missed--; missedEl.textContent=missed; }
+    const current = parseInt(paddle.style.width);
+    paddle.style.width = Math.min(current * 1.5, INITIAL_PADDLE_WIDTH * 2) + "px";
+    setTimeout(() => {
+      paddle.style.width = Math.max(MIN_PADDLE_WIDTH, parseInt(paddle.style.width) / 1.5) + "px";
+    }, 10000);
+  }
+  else if (type === "slow") {
+    sfx.slow();
+    fallSpeed = Math.max(2, fallSpeed / 2);
+    setTimeout(() => { fallSpeed = Math.max(2, fallSpeed * 2); }, 5000);
+  }
+  else if (type === "coin") {
+    sfx.coin();
+    score += 10 * multiplier; scoreEl.textContent = score;
+  }
+  else if (type === "life") {
+    sfx.life();
+    if (missed > 0) { missed--; missedEl.textContent = missed; }
   }
 }
 
-// ---------- Level up ----------
+// ---------- Level progression ----------
 function levelUp() {
   level++; levelEl.textContent = level;
+
   fallSpeed += SPEED_INC;
   spawnRate = Math.max(400, spawnRate - SPAWN_DEC);
-  clearInterval(spawnTick); spawnTick = setInterval(spawnEntity, spawnRate);
-  const cur = parseInt(paddle.style.width); paddle.style.width = Math.max(MIN_PADDLE_WIDTH, cur - 4) + "px";
+  clearInterval(spawnTick);
+  spawnTick = setInterval(spawnEntity, spawnRate);
+
+  const current = parseInt(paddle.style.width);
+  paddle.style.width = Math.max(MIN_PADDLE_WIDTH, current - 4) + "px";
   sfx.level();
 }
 
 // ---------- Confetti ----------
 function launchConfetti() {
-  const colors=["#667eea","#764ba2","#33c060"];
-  for (let i=0;i<70;i++){
-    const c=document.createElement("div"); c.classList.add("confetti");
-    c.style.left=Math.random()*window.innerWidth+"px";
-    c.style.background=colors[Math.floor(Math.random()*colors.length)];
-    c.style.animationDuration=(Math.random()*2+2)+"s";
-    c.style.transform=`rotate(${Math.random()*360}deg)`;
-    document.body.appendChild(c); setTimeout(()=>c.remove(),4000);
+  const colors = ["#667eea", "#764ba2", "#33c060"];
+  for (let i = 0; i < 70; i++) {
+    const c = document.createElement("div");
+    c.classList.add("confetti");
+    c.style.left = Math.random() * window.innerWidth + "px";
+    c.style.background = colors[Math.floor(Math.random() * colors.length)];
+    c.style.animationDuration = (Math.random() * 2 + 2) + "s";
+    c.style.transform = `rotate(${Math.random() * 360}deg)`;
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 4000);
   }
 }
 
 // ---------- Particles ----------
-function spawnParticles(x,y,color){
-  const m=4, maxX=gameArea.clientWidth-m, maxY=gameArea.clientHeight-m;
-  const cx=Math.max(m,Math.min(maxX,x)), cy=Math.max(m,Math.min(maxY,y));
+function spawnParticles(x, y, color){
+  const margin = 4;
+  const maxX = gameArea.clientWidth  - margin;
+  const maxY = gameArea.clientHeight - margin;
+  const cx = Math.max(margin, Math.min(maxX, x));
+  const cy = Math.max(margin, Math.min(maxY, y));
+
   for (let i=0;i<10;i++){
-    const p=document.createElement("div"); p.className="particle";
-    p.style.left=(cx-3)+"px"; p.style.top=(cy-3)+"px"; p.style.background=color;
-    p.style.transform="translate(0,0)"; p.style.opacity="1";
-    p.style.transition="transform .4s ease-out, opacity .4s ease-out"; p.style.willChange="transform, opacity";
+    const p = document.createElement("div");
+    p.className = "particle";
+    p.style.left = (cx - 3) + "px";
+    p.style.top  = (cy - 3) + "px";
+    p.style.background = color;
+    p.style.transform = "translate(0,0)";
+    p.style.opacity = "1";
+    p.style.transition = "transform .4s ease-out, opacity .4s ease-out";
+    p.style.willChange = "transform, opacity";
     gameArea.appendChild(p);
-    const dx=(Math.random()*2-1)*60, dy=-20+(Math.random()*2-1)*40;
-    requestAnimationFrame(()=>{ p.style.transform=`translate(${dx}px, ${dy}px)`; p.style.opacity="0"; });
-    setTimeout(()=>p.remove(),450);
+
+    const dx = (Math.random()*2-1) * 60;
+    const dy = -20 + (Math.random()*2-1) * 40;
+
+    requestAnimationFrame(()=>{
+      p.style.transform = `translate(${dx}px, ${dy}px)`;
+      p.style.opacity = "0";
+    });
+    setTimeout(()=>p.remove(), 450);
   }
 }

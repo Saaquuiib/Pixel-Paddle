@@ -8,12 +8,11 @@
   --text:#ffffff;
   --shadow:0 12px 28px rgba(0,0,0,.35);
   --vh: 1vh;          /* JS updates for mobile safe viewport */
-  --hudGap: 0px;      /* dynamic: HUD height when playing on mobile */
-  --topGap: 0px;      /* dynamic: equal to --hudGap to mirror spacing above */
+  --hudGap: 0px;      /* JS updates to HUD height when playing on mobile */
 }
 
 * { box-sizing: border-box; }
-html { overflow-anchor: none; }
+html { overflow-anchor: none; } /* prevent scroll anchoring jumps */
 
 body {
   margin: 0;
@@ -32,7 +31,7 @@ button, input, select, textarea, ::placeholder {
 
 .container { text-align: center; width: 100%; }
 
-/* Title + icon aligned */
+/* ---- Title + icon alignment fix ---- */
 h1{
   display: inline-flex;
   align-items: baseline;
@@ -50,25 +49,25 @@ h1 .icon{
   height: 1.0em;
   font-size: 1.35em;
   line-height: 1;
+  vertical-align: middle;
   position: relative;
   top: 0.06em;
 }
 h1 .title{ line-height: 1; }
 
-/* CRT wrapper */
+/* ---- CRT wrapper (padding around board) ---- */
 .crt { position: relative; padding: 10px; border-radius: 18px; }
 
-/* Game Area */
+/* ---- Game Area ---- */
 #gameArea{
   position:relative;
   width:540px; max-width:92vw; aspect-ratio:4/5;
   background:var(--board); border-radius:16px; box-shadow:var(--shadow);
   overflow:hidden;
-  /* top margin mirrors bottom HUD gap on mobile (set via JS) */
-  margin: calc(8px + var(--topGap, 0px)) auto calc(8px + var(--hudGap, 0px));
+  margin: 0 auto calc(8px + var(--hudGap, 0px)); /* dynamic gap below for HUD */
 }
 
-/* CRT overlays */
+/* Stable CRT scanlines + vignette directly on the board */
 #gameArea::before{
   content:""; position:absolute; inset:0; pointer-events:none;
   background: repeating-linear-gradient(
@@ -106,7 +105,9 @@ h1 .title{ line-height: 1; }
 }
 
 /* Power-ups */
-.powerup{ position:absolute; top:0; width:20px; height:20px; border-radius:4px; z-index:3; }
+.powerup{
+  position:absolute; top:0; width:20px; height:20px; border-radius:4px; z-index:3;
+}
 .powerup.expand{ background:#4caf50; }
 .powerup.slow  { background:#2196f3; border-radius:50%; }
 .powerup.coin  { background:gold; border-radius:50%; }
@@ -118,78 +119,124 @@ h1 .title{ line-height: 1; }
   background:var(--hazard); box-shadow:0 0 10px rgba(255,82,82,.5);
   z-index:3;
 }
-.hazard::after{ content:"✖"; color:#111; position:absolute; inset:0; display:grid; place-items:center; font-size:14px; }
+.hazard::after{
+  content:"✖"; color:#111; position:absolute; inset:0;
+  display:grid; place-items:center; font-size:14px;
+}
 
 /* Catch particles (inside the board) */
-.particle{ position:absolute; width:6px; height:6px; border-radius:2px; pointer-events:none; z-index:8; }
+.particle{
+  position:absolute; width:6px; height:6px; border-radius:2px; pointer-events:none; z-index:8;
+}
 
-/* HUD */
-.info{ display:flex; gap:18px; align-items:center; justify-content:center; flex-wrap:wrap; font-weight:500; padding-bottom:10px; }
+/* ---- HUD ---- */
+.info{
+  display:flex; gap:18px; align-items:center; justify-content:center;
+  flex-wrap:wrap; font-weight:500; padding-bottom:10px;
+}
 .controls{ display:flex; gap:10px; flex-wrap:wrap; }
 
 button{
   background:var(--paddle); color:#fff; border:none; padding:10px 18px;
-  border-radius:10px; cursor:pointer; font-weight:600; box-shadow:0 6px 14px rgba(0,0,0,.25);
+  border-radius:10px; cursor:pointer; font-weight:600;
+  box-shadow:0 6px 14px rgba(0,0,0,.25);
 }
 #pauseBtn, #settingsBtn { background:#2bb1d6; }
 button:disabled{ opacity:.65; cursor:not-allowed; }
 
 /* Compact icon button for settings */
-.btn-icon{ width:40px; height:40px; padding:0; display:inline-flex; align-items:center; justify-content:center; border-radius:10px; }
+.btn-icon{
+  width:40px; height:40px; padding:0;
+  display:inline-flex; align-items:center; justify-content:center;
+  border-radius:10px;
+}
 .btn-icon svg{ width:20px; height:20px; stroke:#fff; fill:none; }
 
-/* Modals */
-.modal{ position:fixed; inset:0; display:none; place-items:center; background:rgba(0,0,0,.55); backdrop-filter:blur(2px); z-index:1000; }
+/* ---------- Modals ---------- */
+.modal{
+  position:fixed; inset:0; display:none; place-items:center;
+  background:rgba(0,0,0,.55); backdrop-filter:blur(2px); z-index:1000;
+}
 .modal.open{ display:grid; }
-.modal__card{ width:min(92vw,420px); background:#fff; color:#222; border-radius:16px; box-shadow:var(--shadow); padding:22px; text-align:center; animation:popIn .28s ease forwards; }
+
+.modal__card{
+  width:min(92vw,420px); background:#fff; color:#222; border-radius:16px;
+  box-shadow:var(--shadow); padding:22px; text-align:center;
+  animation:popIn .28s ease forwards;
+}
 .modal__card h2{ margin:0 0 6px; color:#e74c3c; }
 .modal__card p{ margin:6px 0; }
 .modal__actions{ display:flex; gap:10px; justify-content:center; margin-top:16px; }
-.btn-primary, .btn-ghost{ font-weight:600; padding:10px 16px; border-radius:10px; border:0; cursor:pointer; }
+.btn-primary, .btn-ghost{
+  font-weight:600; padding:10px 16px; border-radius:10px; border:0; cursor:pointer;
+}
 .btn-primary{ background:#33c060; color:#fff; }
 .btn-ghost{ background:#eee; color:#222; }
 
-/* Settings bits */
+/* Settings specifics */
 .setting{ margin:14px 0; }
 .setting .label{ margin-bottom:8px; }
 .setting .inline{ margin-right:14px; display:inline-flex; gap:8px; align-items:center; }
 
-/* High score banner */
-.new-high-score{ display:none; font-size:1.1rem; font-weight:700; color:#ff9800; text-shadow:0 0 10px rgba(255,152,0,.8), 0 0 20px rgba(255,152,0,.6); margin-bottom:10px; animation:pulse 1s infinite; }
+/* New High Score banner */
+.new-high-score{
+  display:none; font-size:1.1rem; font-weight:700; color:#ff9800;
+  text-shadow:0 0 10px rgba(255,152,0,.8), 0 0 20px rgba(255,152,0,.6);
+  margin-bottom:10px; animation:pulse 1s infinite;
+}
 
 /* Confetti */
-.confetti{ position:fixed; width:8px; height:8px; top:-10px; z-index:2000; border-radius:2px; animation:fall linear forwards; }
+.confetti{
+  position:fixed; width:8px; height:8px; top:-10px; z-index:2000;
+  border-radius:2px; animation:fall linear forwards;
+}
 
 /* Juicy feedback */
 .shake{ animation:shake .3s linear; }
 .flash{ animation:flash .18s linear; }
-@keyframes shake{ 0%,100%{ transform:translateX(0); } 25%{ transform:translateX(-6px); } 50%{ transform:translateX(6px); } 75%{ transform:translateX(-3px); } }
-@keyframes flash{ from{ box-shadow:0 0 0 0 rgba(255,255,255,.0); } to{ box-shadow:0 0 0 6px rgba(255,255,255,.2) inset; } }
+@keyframes shake{
+  0%,100%{ transform:translateX(0); }
+  25%{ transform:translateX(-6px); }
+  50%{ transform:translateX(6px); }
+  75%{ transform:translateX(-3px); }
+}
+@keyframes flash{
+  from{ box-shadow:0 0 0 0 rgba(255,255,255,.0); }
+  to  { box-shadow:0 0 0 6px rgba(255,255,255,.2) inset; }
+}
 
-/* Misc animations */
-@keyframes popIn{ from{ transform:scale(.95); opacity:0; } to{ transform:scale(1); opacity:1; } }
-@keyframes pulse{ 0%{transform:scale(1);} 50%{transform:scale(1.1);} 100%{transform:scale(1);} }
-@keyframes fall{ to{ transform:translateY(100vh) rotate(360deg); opacity:0; } }
-@keyframes bgShift{ 0%{ filter:hue-rotate(0deg); } 100%{ filter:hue-rotate(25deg); } }
-@keyframes flicker{ 0%{ opacity:.9; } 50%{ opacity:1; } 100%{ opacity:.9; } }
+/* Animations */
+@keyframes popIn { from{ transform:scale(.95); opacity:0; } to{ transform:scale(1); opacity:1; } }
+@keyframes pulse { 0%{transform:scale(1);} 50%{transform:scale(1.1);} 100%{transform:scale(1);} }
+@keyframes fall { to{ transform:translateY(100vh) rotate(360deg); opacity:0; } }
+@keyframes bgShift { 0%{ filter:hue-rotate(0deg); } 100%{ filter:hue-rotate(25deg); } }
+@keyframes flicker { 0%{ opacity:.9; } 50%{ opacity:1; } 100%{ opacity:.9; } }
 
-/* ===== Mobile layout ===== */
+/* ===== Mobile layout polish ===== */
 @media (max-width: 768px) {
-  body.noscroll { position: fixed; inset: 0; overflow: hidden; height: calc(var(--vh) * 100); width: 100%; }
+  /* Lock scroll only while playing, with proper viewport height */
+  body.noscroll {
+    position: fixed; inset: 0;
+    overflow: hidden;
+    height: calc(var(--vh) * 100);
+    width: 100%;
+  }
 
-  /* Sticky title */
+  /* Keep the title always visible on top */
   h1{
     position: fixed;
     top: calc(env(safe-area-inset-top, 0px) + 8px);
     left: 50%; transform: translateX(-50%);
-    margin: 0; z-index: 30; padding: 4px 8px;
+    margin: 0;
+    z-index: 30;
+    padding: 4px 8px;
   }
-  .container { padding-top: 64px; }
+  .container { padding-top: 64px; } /* space under sticky title */
 
-  /* Board uses symmetric gaps set by JS */
-  #gameArea { margin: calc(8px + var(--topGap, 0px)) auto calc(8px + var(--hudGap, 0px)); }
+  /* Game area sits between title and bottom overlay */
+  #gameArea { margin: 8px auto calc(8px + var(--hudGap, 0px)); }
 
-  /* HUD — single line: left stats, centered controls, right stats */
+  /* HUD becomes a floating overlay; single-line layout */
   .info{
     position: fixed;
     left: max(8px, env(safe-area-inset-left));
@@ -199,24 +246,22 @@ button:disabled{ opacity:.65; cursor:not-allowed; }
     background: rgba(0,0,0,.28);
     backdrop-filter: blur(8px);
     border-radius: 12px;
-    padding: 6px 8px;
+    padding: 6px 8px;                  /* tighter */
     gap: 8px 12px;
 
+    /* grid makes stats (left) + controls (right) on one line */
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: 1fr auto;
     align-items: center;
 
-    pointer-events: none; /* let touches pass through except content */
+    /* don't block game touches except on HUD content */
+    pointer-events: none;
   }
   .info > * { pointer-events: auto; }
 
-  /* Map stats via classes (set by JS) */
-  .stat-left{ grid-column: 1; }
-  .stat-right{ grid-column: 3; justify-self: end; text-align: right; }
-  .controls{ grid-column: 2; justify-self: center; gap: 8px; flex-wrap: nowrap; }
-
-  .info p{ margin: 0; font-size: 12px; display:block; }
+  .info p{ margin: 0; font-size: 12px; display:inline-block; }
+  .controls{ gap: 8px; flex-wrap: nowrap; justify-content: flex-end; }
   .controls button{ padding: 8px 10px; font-size: 12px; }
-  .controls .btn-icon{ width:36px; height:36px; }
+  .controls .btn-icon{ width:36px; height:36px; } /* even tighter on mobile */
   .controls .btn-icon svg{ width:18px; height:18px; }
 }
