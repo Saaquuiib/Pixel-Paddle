@@ -46,8 +46,7 @@ Your goal is simple: move the paddle to **catch falling balls** — but beware, 
 <img width="832" height="871" alt="image" src="https://github.com/user-attachments/assets/0d9cb45d-adcd-4cb9-b6b1-e40125b56240" />
 <img width="854" height="852" alt="image" src="https://github.com/user-attachments/assets/5ad918b7-7560-4a2b-a09a-f8adeccda1d6" />
 <img width="833" height="814" alt="image" src="https://github.com/user-attachments/assets/d948accb-ca74-4015-9718-75b20c1dfb05" />
-
-
+<img width="859" height="825" alt="image" src="https://github.com/user-attachments/assets/574512dd-7bbd-4946-8b81-9a8ef1f4c5a0" />
 
 
 ---
@@ -55,9 +54,4 @@ Your goal is simple: move the paddle to **catch falling balls** — but beware, 
 ## 🚀 Setup / Run Instructions
 
 No build tools or frameworks required!  
-Just open `index.html` in your browser:
-
-```bash
-git clone https://github.com/<your-username>/catch-the-ball.git
-cd catch-the-ball
-open index.html   # or double-click the file
+Just open: https://saaquuiib.github.io/Pixel-Paddle/ and enjoy!
