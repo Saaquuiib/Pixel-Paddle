@@ -28,6 +28,28 @@ const diffRadios   = [...document.querySelectorAll('input[name="difficulty"]')];
 
 const hud = document.querySelector('.info');
 
+// ---------- Make Settings a compact cog icon ----------
+(function makeSettingsIcon(){
+  if (!settingsBtn) return;
+  settingsBtn.classList.add('btn-icon');
+  settingsBtn.setAttribute('aria-label','Settings');
+  settingsBtn.setAttribute('title','Settings');
+  settingsBtn.innerHTML = `
+    <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"></circle>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33
+               1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 8 19.4
+               a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06
+               a1.65 1.65 0 0 0 .33-1.82A1.65 1.65 0 0 0 3 12
+               a1.65 1.65 0 0 0-.51-1.17l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06
+               A1.65 1.65 0 0 0 6 8.6a1.65 1.65 0 0 0 1.82-.33
+               A1.65 1.65 0 0 0 9.33 7H9.4a1.65 1.65 0 0 0 1.6-1.34V5a2 2 0 1 1 4 0v.66
+               A1.65 1.65 0 0 0 16 7a1.65 1.65 0 0 0 1.18.49
+               1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06
+               A1.65 1.65 0 0 0 21 12c0 .47.19.9.4 1.3z"></path>
+    </svg>`;
+})();
+
 // ---------- Mobile viewport & HUD gap ----------
 function setVh() {
   const vh = window.innerHeight * 0.01;
@@ -42,14 +64,12 @@ function ensureTop() {
   window.scrollTo(0, 0);
 }
 
-function isMobile() {
-  return window.matchMedia('(max-width: 768px)').matches;
-}
+function isMobile() { return window.matchMedia('(max-width: 768px)').matches; }
 
 /* Set --hudGap to HUD height when playing on mobile, else 0 */
 function updateHudGap() {
   const gap = (document.body.classList.contains('playing') && isMobile() && hud)
-    ? (hud.offsetHeight + 12)
+    ? (hud.offsetHeight + 12)   // little breathing room
     : 0;
   document.documentElement.style.setProperty('--hudGap', `${gap}px`);
 }
@@ -152,7 +172,7 @@ function noiseHit(when, duration, type, freq, q, gainLevel){
   src.start(when); src.stop(when + duration);
 }
 
-/* Drum kit */
+/* Drum kit + SFX definitions omitted for brevity — they remain the same as your last version */
 function scheduleKick(when){
   if (!audioCtx) return;
   const osc = audioCtx.createOscillator();
@@ -177,7 +197,6 @@ function scheduleClap(when){
   noiseHit(when,      0.07, "bandpass", 2000, 1.8, 0.12);
   noiseHit(when+0.03, 0.07, "bandpass", 2000, 1.8, 0.08);
 }
-
 const sfx = {
   catch: ()=> { beep(860+rnd(30), 110, "square", .18); beep(1720+rnd(40), 90, "triangle", .10); },
   miss:  ()=> { beep(200+rnd(10), 220, "sawtooth", .22); },
@@ -199,13 +218,13 @@ function startMusic(){
   if (!audioCtx) return;
 
   const BPM = 132;
-  const beat = 60 / BPM;     // quarter note (s)
-  const step = beat / 4;     // 16th note (s)
-  const swing = step * 0.12; // small delay on odd steps for groove
+  const beat = 60 / BPM;
+  const step = beat / 4;
+  const swing = step * 0.12;
   let stepIdx = 0;
 
   musicTimer = setInterval(() => {
-    const withinStep = (stepIdx % 2 === 1) ? swing : 0; // swing on off-16ths
+    const withinStep = (stepIdx % 2 === 1) ? swing : 0;
     const t = audioCtx.currentTime + 0.035 + withinStep;
     const pos = stepIdx % 16;
 
@@ -412,13 +431,14 @@ function spawnHazard() {
   gameArea.appendChild(hz);
 }
 
-// ---------- Game loop (with crossing-based collisions) ----------
+// ---------- Game loop (crossing-based collisions) ----------
+const BALL_W = BALL_SIZE, BALL_H = BALL_SIZE;
 function step() {
   if (paused) return;
 
   const areaRect = gameArea.getBoundingClientRect();
   const padRect  = paddle.getBoundingClientRect();
-  const padTop   = padRect.top - areaRect.top;             // relative to gameArea
+  const padTop   = padRect.top - areaRect.top;
   const padLeft  = padRect.left - areaRect.left;
   const padRight = padLeft + padRect.width;
 
@@ -428,29 +448,25 @@ function step() {
     const newY  = prevY + fallSpeed;
     ball.style.top = newY + "px";
 
-    const ballLeft  = parseFloat(ball.style.left) || 0;
-    const ballRight = ballLeft + BALL_SIZE;
-    const crossedPadTop = (prevY + BALL_SIZE <= padTop) && (newY + BALL_SIZE >= padTop);
-    const horizontalOverlap = (ballLeft < padRight) && (ballRight > padLeft);
+    const left  = parseFloat(ball.style.left) || 0;
+    const right = left + BALL_W;
+    const crossedPadTop = (prevY + BALL_H <= padTop) && (newY + BALL_H >= padTop);
+    const horizontalOverlap = (left < padRight) && (right > padLeft);
 
     if (crossedPadTop && horizontalOverlap) {
-      // Contact point: ball center at y = padTop
-      const relX = ballLeft + BALL_SIZE/2;
+      const relX = left + BALL_W/2;
       const relY = padTop;
-
       streak++;
       multiplier = Math.min(5, 1 + Math.floor(streak / 5));
       comboEl.textContent = `x${multiplier}`;
       score += 1 * multiplier; scoreEl.textContent = score;
-
       sfx.catch();
       spawnParticles(relX, relY, "#e74c3c");
       ball.remove();
       return;
     }
 
-    // Miss if it goes out the bottom
-    if (newY >= gameArea.clientHeight - BALL_SIZE) {
+    if (newY >= gameArea.clientHeight - BALL_H) {
       streak = 0; multiplier = 1; comboEl.textContent = "x1";
       missed++; missedEl.textContent = missed; sfx.miss();
       gameArea.classList.add("shake"); setTimeout(()=>gameArea.classList.remove("shake"), 320);
@@ -560,7 +576,7 @@ function launchConfetti() {
   }
 }
 
-// ---------- Particles (inside board; reliable every catch) ----------
+// ---------- Particles ----------
 function spawnParticles(x, y, color){
   const margin = 4;
   const maxX = gameArea.clientWidth  - margin;

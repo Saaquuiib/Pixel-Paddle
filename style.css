@@ -34,7 +34,7 @@ button, input, select, textarea, ::placeholder {
 /* ---- Title + icon alignment fix ---- */
 h1{
   display: inline-flex;
-  align-items: baseline;          /* align to text baseline */
+  align-items: baseline;
   justify-content: center;
   gap: 12px;
   margin: 16px 0;
@@ -51,7 +51,7 @@ h1 .icon{
   line-height: 1;
   vertical-align: middle;
   position: relative;
-  top: 0.06em; /* nudge to align with text cap height */
+  top: 0.06em;
 }
 h1 .title{ line-height: 1; }
 
@@ -108,10 +108,10 @@ h1 .title{ line-height: 1; }
 .powerup{
   position:absolute; top:0; width:20px; height:20px; border-radius:4px; z-index:3;
 }
-.powerup.expand{ background:#4caf50; }                         /* green square */
-.powerup.slow  { background:#2196f3; border-radius:50%; }      /* blue circle */
-.powerup.coin  { background:gold; border-radius:50%; }         /* gold coin   */
-.powerup.life  { background:pink; }                             /* pink square */
+.powerup.expand{ background:#4caf50; }
+.powerup.slow  { background:#2196f3; border-radius:50%; }
+.powerup.coin  { background:gold; border-radius:50%; }
+.powerup.life  { background:pink; }
 
 /* Hazards */
 .hazard{
@@ -143,6 +143,14 @@ button{
 }
 #pauseBtn, #settingsBtn { background:#2bb1d6; }
 button:disabled{ opacity:.65; cursor:not-allowed; }
+
+/* Compact icon button for settings */
+.btn-icon{
+  width:40px; height:40px; padding:0;
+  display:inline-flex; align-items:center; justify-content:center;
+  border-radius:10px;
+}
+.btn-icon svg{ width:20px; height:20px; stroke:#fff; fill:none; }
 
 /* ---------- Modals ---------- */
 .modal{
@@ -228,7 +236,7 @@ button:disabled{ opacity:.65; cursor:not-allowed; }
   /* Game area sits between title and bottom overlay */
   #gameArea { margin: 8px auto calc(8px + var(--hudGap, 0px)); }
 
-  /* HUD becomes a floating overlay; doesn't affect page height */
+  /* HUD becomes a floating overlay; single-line layout */
   .info{
     position: fixed;
     left: max(8px, env(safe-area-inset-left));
@@ -238,16 +246,22 @@ button:disabled{ opacity:.65; cursor:not-allowed; }
     background: rgba(0,0,0,.28);
     backdrop-filter: blur(8px);
     border-radius: 12px;
-    padding: 8px 10px;
-    gap: 12px;
-    justify-content: space-between;
+    padding: 6px 8px;                  /* tighter */
+    gap: 8px 12px;
+
+    /* grid makes stats (left) + controls (right) on one line */
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
 
     /* don't block game touches except on HUD content */
     pointer-events: none;
   }
   .info > * { pointer-events: auto; }
 
-  .info p{ margin: 0; font-size: 12px; }
-  .controls{ gap: 8px; }
+  .info p{ margin: 0; font-size: 12px; display:inline-block; }
+  .controls{ gap: 8px; flex-wrap: nowrap; justify-content: flex-end; }
   .controls button{ padding: 8px 10px; font-size: 12px; }
+  .controls .btn-icon{ width:36px; height:36px; } /* even tighter on mobile */
+  .controls .btn-icon svg{ width:18px; height:18px; }
 }
