@@ -89,6 +89,8 @@ Pixel Paddle is a retro-styled browser mini-game built with **HTML, CSS, and Jav
 <img width="1180" height="826" alt="image" src="https://github.com/user-attachments/assets/7a180eb6-0635-4ada-bee4-85b112964ace" />
 <img width="1146" height="822" alt="image" src="https://github.com/user-attachments/assets/ef29febd-93a2-48d7-b5da-563672530196" />
 <img width="1177" height="818" alt="image" src="https://github.com/user-attachments/assets/1eb807ad-abe0-4d53-bb01-30084e507ad7" />
+<img width="1160" height="818" alt="image" src="https://github.com/user-attachments/assets/63c90c5e-856c-4e41-ac26-0a7a1adf69ff" />
+<img width="1187" height="841" alt="image" src="https://github.com/user-attachments/assets/dc397e3c-b01b-4e65-8d28-6bce6fa34421" />
 
 
 
