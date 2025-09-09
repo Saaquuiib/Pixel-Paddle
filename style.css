@@ -4,6 +4,7 @@
   --board:#1f1f1f;
   --paddle:#33c060;
   --ball:#e74c3c;
+  --hazard:#ff5252;
   --text:#ffffff;
   --shadow:0 12px 28px rgba(0,0,0,.35);
 }
@@ -12,174 +13,199 @@
 
 body {
   margin: 0;
-  font-family: 'Press Start 2P', cursive;  /* pixel arcade font */
+  font-family: 'Press Start 2P', cursive;
   color: var(--text);
   background: linear-gradient(135deg, var(--bg1), var(--bg2));
+  min-height: 100vh;
   display: grid;
   place-items: center;
-  height: 100vh;
+  animation: bgShift 28s linear infinite alternate;
 }
 
-button, input, select, textarea, ::placeholder { 
+/* Lock scroll on mobile only while playing */
+@media (max-width: 768px) {
+  body.noscroll { overflow: hidden; height: 100vh; }
+}
+
+button, input, select, textarea, ::placeholder {
   font-family: 'Press Start 2P', cursive;
-  font-size: 0.7rem;
-  padding: 12px 20px;
 }
 
-body.noscroll {
-  overflow: hidden;
-  height: 100vh;
-}
+.container { text-align: center; width: 100%; }
 
-
-.container { text-align: center; }
-
-h1 {
-  margin: 0 0 16px;
-  text-align: center;
+h1{
+  /* keep your shadow/margins as-is if you like */
+  display: inline-flex;
+  align-items: baseline;          /* align to text baseline */
+  justify-content: center;
+  gap: 12px;
+  margin: 16px 0;
   font-weight: 700;
   text-shadow: 0 2px 12px rgba(0,0,0,.25);
 }
 
-#gameArea {
-  position: relative;
-  width: 540px;
-  max-width: 92vw;
-  aspect-ratio: 4/5;
-  background: var(--board);
-  border-radius: 16px;
-  box-shadow: var(--shadow);
-  overflow: hidden;
-  margin: 0 auto 18px;
-}
-
-#paddle {
-  position: absolute;
-  bottom: 12px;
-  left: calc(50% - 50px);
-  width: 100px; /* initial */
-  height: 16px;
-  background: var(--paddle);
-  border-radius: 999px;
-  transition: width 0.5s ease; /* smooth shrink */
-}
-
-.ball {
-  position: absolute;
-  top: 0;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: var(--ball);
-}
-
-.info {
-  display: flex;
-  gap: 18px;
+/* Make the emoji live in a predictable box and center it */
+h1 .icon{
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex-wrap: wrap;
-  font-size: 0.8rem;
+  width: 1.25em;                  /* square box tied to font size */
+  height: 1.0em;
+  font-size: 1.35em;              /* slightly larger than text */
+  line-height: 1;
+  vertical-align: middle;
+  position: relative;
+  top: 0.06em;                    /* 🔧 nudge DOWN a touch (adjust ±.02em if needed) */
 }
 
-#startBtn {
-  background: var(--paddle);
-  color: #fff;
-  border: none;
-  padding: 10px 18px;
-  border-radius: 10px;
-  cursor: pointer;
-  box-shadow: 0 6px 14px rgba(0,0,0,.25);
-}
-#startBtn:disabled {
-  opacity: .65;
-  cursor: not-allowed;
-  background: #25a24d;
+/* Ensure the text has tight metrics so centers match */
+h1 .title{
+  line-height: 1;
 }
 
-/* Modal */
-.modal {
-  position: fixed;
-  inset: 0;
-  display: none;
-  place-items: center;
-  background: rgba(0,0,0,.55);
-  backdrop-filter: blur(2px);
-  z-index: 1000;
-}
-.modal.open { display: grid; }
+/* ---- GAME AREA ---- */
+.crt { position: relative; padding: 10px; border-radius: 18px; }
 
-.modal__card {
-  width: min(92vw, 380px);
-  background: #fff;
-  color: #222;
-  border-radius: 16px;
-  box-shadow: var(--shadow);
-  padding: 22px;
-  text-align: center;
-  animation: popIn .28s ease forwards;
+#gameArea{
+  position:relative;
+  width:540px; max-width:92vw; aspect-ratio:4/5;
+  background:var(--board); border-radius:16px; box-shadow:var(--shadow);
+  overflow:hidden; margin:0 auto 8px;
 }
 
-.modal__card h2 {
-  margin: 0 0 6px;
-  color: #e74c3c;
+/* CRT scanlines + vignette now on the game area itself (stable) */
+#gameArea::before{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background: repeating-linear-gradient(
+    to bottom, rgba(255,255,255,.06), rgba(255,255,255,.06) 1px,
+    rgba(0,0,0,0) 2px, rgba(0,0,0,0) 4px
+  );
+  mix-blend-mode: overlay; border-radius:16px; z-index:5;
+  animation: flicker 1.4s steps(2) infinite;
+}
+#gameArea::after{
+  content:""; position:absolute; inset:0; pointer-events:none; z-index:6;
+  background: radial-gradient(circle at center,
+    rgba(0,0,0,0) 62%, rgba(0,0,0,.25) 100%);
+  border-radius:16px;
 }
 
-.modal__card p {
-  margin: 6px 0;
+#pauseOverlay.overlay{
+  position:absolute; inset:0; display:none; place-items:center; z-index:7;
+  background:rgba(0,0,0,.5); color:#fff; font-size:1.2rem;
+}
+#pauseOverlay.show{ display:grid; }
+
+#paddle{
+  position:absolute; bottom:12px; left:calc(50% - 50px);
+  width:100px; height:16px; background:var(--paddle);
+  border-radius:999px; transition:width .5s ease;
+  box-shadow: 0 4px 0 rgba(0,0,0,.2) inset;
+  z-index:4;
 }
 
-.modal__actions {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-  margin-top: 16px;
+.ball{
+  position:absolute; top:0; width:20px; height:20px; border-radius:50%;
+  background:var(--ball); box-shadow:0 0 10px rgba(231,76,60,.4);
+  z-index:3;
 }
 
-.btn-primary, .btn-ghost {
-  padding: 10px 16px;
-  border-radius: 10px;
-  border: 0;
-  cursor: pointer;
+/* Power-ups */
+.powerup{
+  position:absolute; top:0; width:20px; height:20px; border-radius:4px; z-index:3;
 }
-.btn-primary { background: #33c060; color: #fff; }
-.btn-ghost { background: #eee; color: #222; }
+.powerup.expand{ background:#4caf50; }                         /* green square */
+.powerup.slow  { background:#2196f3; border-radius:50%; }      /* blue circle */
+.powerup.coin  { background:gold; border-radius:50%; }         /* gold coin   */
+.powerup.life  { background:pink; }                             /* pink square */
 
-/* New High Score Banner */
-.new-high-score {
-  display: none;
-  font-size: 1.1rem;
-  color: #ff9800;
-  text-shadow: 0 0 10px rgba(255,152,0,0.8),
-               0 0 20px rgba(255,152,0,0.6);
-  margin-bottom: 10px;
-  animation: pulse 1s infinite;
+/* Hazards */
+.hazard{
+  position:absolute; top:0; width:22px; height:22px; border-radius:50%;
+  background:var(--hazard); box-shadow:0 0 10px rgba(255,82,82,.5);
+  z-index:3;
+}
+.hazard::after{
+  content:"✖"; color:#111; position:absolute; inset:0;
+  display:grid; place-items:center; font-size:14px;
 }
 
-@keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); }
+/* Catch particles (now inside the board) */
+.particle{
+  position:absolute; width:6px; height:6px; border-radius:2px; pointer-events:none; z-index:8;
+}
+
+/* HUD */
+.info{
+  display:flex; gap:18px; align-items:center; justify-content:center;
+  flex-wrap:wrap; font-weight:500; padding-bottom:10px;
+}
+.controls{ display:flex; gap:10px; flex-wrap:wrap; }
+
+button{
+  background:var(--paddle); color:#fff; border:none; padding:10px 18px;
+  border-radius:10px; cursor:pointer; font-weight:600;
+  box-shadow:0 6px 14px rgba(0,0,0,.25);
+}
+#pauseBtn, #settingsBtn { background:#2bb1d6; }
+button:disabled{ opacity:.65; cursor:not-allowed; }
+
+/* ---------- Modals ---------- */
+.modal{
+  position:fixed; inset:0; display:none; place-items:center;
+  background:rgba(0,0,0,.55); backdrop-filter:blur(2px); z-index:1000;
+}
+.modal.open{ display:grid; }
+
+.modal__card{
+  width:min(92vw,420px); background:#fff; color:#222; border-radius:16px;
+  box-shadow:var(--shadow); padding:22px; text-align:center;
+  animation:popIn .28s ease forwards;
+}
+.modal__card h2{ margin:0 0 6px; color:#e74c3c; }
+.modal__card p{ margin:6px 0; }
+.modal__actions{ display:flex; gap:10px; justify-content:center; margin-top:16px; }
+.btn-primary, .btn-ghost{
+  font-weight:600; padding:10px 16px; border-radius:10px; border:0; cursor:pointer;
+}
+.btn-primary{ background:#33c060; color:#fff; }
+.btn-ghost{ background:#eee; color:#222; }
+
+/* Settings specifics */
+.setting{ margin:14px 0; }
+.setting .label{ margin-bottom:8px; }
+.setting .inline{ margin-right:14px; display:inline-flex; gap:8px; align-items:center; }
+
+/* New High Score banner */
+.new-high-score{
+  display:none; font-size:1.1rem; font-weight:700; color:gold;
+  text-shadow:0 0 10px rgba(255,152,0,.8), 0 0 20px rgba(255,152,0,.6);
+  margin-bottom:10px; animation:pulse 1s infinite;
 }
 
 /* Confetti */
-.confetti {
-  position: fixed;
-  width: 8px;
-  height: 8px;
-  top: -10px;
-  z-index: 2000;
-  border-radius: 2px;
-  animation: fall linear forwards;
-}
-@keyframes fall {
-  to {
-    transform: translateY(100vh) rotate(360deg);
-    opacity: 0;
-  }
+.confetti{
+  position:fixed; width:8px; height:8px; top:-10px; z-index:2000;
+  border-radius:2px; animation:fall linear forwards;
 }
 
-@keyframes popIn {
-  from { transform: scale(0.95); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+/* Juicy feedback */
+.shake{ animation:shake .3s linear; }
+.flash{ animation:flash .18s linear; }
+@keyframes shake{
+  0%,100%{ transform:translateX(0); }
+  25%{ transform:translateX(-6px); }
+  50%{ transform:translateX(6px); }
+  75%{ transform:translateX(-3px); }
 }
+@keyframes flash{
+  from{ box-shadow:0 0 0 0 rgba(255,255,255,.0); }
+  to  { box-shadow:0 0 0 6px rgba(255,255,255,.2) inset; }
+}
+
+/* Animations */
+@keyframes popIn { from{ transform:scale(.95); opacity:0; } to{ transform:scale(1); opacity:1; } }
+@keyframes pulse { 0%{transform:scale(1);} 50%{transform:scale(1.1);} 100%{transform:scale(1);} }
+@keyframes fall { to{ transform:translateY(100vh) rotate(360deg); opacity:0; } }
+@keyframes bgShift { 0%{ filter:hue-rotate(0deg); } 100%{ filter:hue-rotate(25deg); } }
+@keyframes flicker { 0%{ opacity:.9; } 50%{ opacity:1; } 100%{ opacity:.9; } }

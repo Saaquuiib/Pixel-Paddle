@@ -2,38 +2,73 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <title>Pixel Paddle</title>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <main class="container">
-    <h1>Pixel Paddle</h1>
+    <h1><span class="icon">🕹️</span><span class="title">Pixel Paddle</span></h1>
 
-    <div id="gameArea">
-      <div id="paddle"></div>
+    <!-- CRT wrapper adds scanlines/vignette -->
+    <div class="crt">
+      <div id="gameArea">
+        <div id="paddle"></div>
+        <!-- Pause overlay -->
+        <div id="pauseOverlay" class="overlay">Paused</div>
+      </div>
     </div>
 
     <div class="info">
       <p>Score: <span id="score">0</span></p>
       <p>Missed: <span id="missed">0</span>/<span id="maxMiss">3</span></p>
       <p>Level: <span id="level">1</span></p>
-      <p>High Score: <span id="highScore">0</span></p>
-      <button id="startBtn" type="button">Start Game</button>
+      <p>Combo: <span id="combo">x1</span></p>
+      <div class="controls">
+        <button id="startBtn" type="button">Start Game</button>
+        <button id="pauseBtn" type="button">Pause</button>
+        <button id="settingsBtn" type="button" aria-haspopup="dialog">Settings</button>
+      </div>
     </div>
   </main>
 
   <!-- Game Over Modal -->
-  <div id="gameOverModal" class="modal">
+  <div id="gameOverModal" class="modal" role="dialog" aria-modal="true">
     <div class="modal__card">
-      <h2 id="modalTitle">Game Over!</h2>
+      <h2>Game Over!</h2>
       <div id="newHighScoreBanner" class="new-high-score">🏆 New High Score!</div>
       <p>Your final score: <strong id="finalScore">0</strong></p>
-      <p>🏆 High score: <strong id="modalHighScore">0</strong></p>
+      <p>🏅 High score: <strong id="modalHighScore">0</strong></p>
       <div class="modal__actions">
         <button id="restartBtn" class="btn-primary" type="button">Play Again</button>
         <button id="closeBtn" class="btn-ghost" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal" role="dialog" aria-modal="true">
+    <div class="modal__card">
+      <h2>Settings</h2>
+
+      <div class="setting">
+        <label for="volume">Volume</label>
+        <input id="volume" type="range" min="0" max="100" step="1">
+        <label class="inline"><input id="muteToggle" type="checkbox"> Mute</label>
+      </div>
+
+      <div class="setting">
+        <div class="label">Difficulty</div>
+        <label class="inline"><input type="radio" name="difficulty" value="easy"> Easy</label>
+        <label class="inline"><input type="radio" name="difficulty" value="normal"> Normal</label>
+        <label class="inline"><input type="radio" name="difficulty" value="hard"> Hard</label>
+      </div>
+
+      <div class="modal__actions">
+        <button id="settingsSaveBtn" class="btn-primary" type="button">Save</button>
+        <button id="settingsCancelBtn" class="btn-ghost" type="button">Cancel</button>
       </div>
     </div>
   </div>
