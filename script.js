@@ -49,7 +49,7 @@ function isMobile() {
 /* Set --hudGap to HUD height when playing on mobile, else 0 */
 function updateHudGap() {
   const gap = (document.body.classList.contains('playing') && isMobile() && hud)
-    ? (hud.offsetHeight + 12)   // little breathing room
+    ? (hud.offsetHeight + 12)
     : 0;
   document.documentElement.style.setProperty('--hudGap', `${gap}px`);
 }
@@ -193,9 +193,7 @@ const sfx = {
   resume:()=> { beep(420,90,"sine", .18); setTimeout(()=>beep(820,130,"sine", .20),95); }
 };
 
-/* ---- GROOVY MUSIC LOOP ----
-   132 BPM w/ swing. Four-on-the-floor kick, backbeat snare+clap, 16th hats, open-hat offbeats, simple bassline.
-*/
+/* ---- GROOVY MUSIC LOOP ---- */
 function startMusic(){
   stopMusic();
   if (!audioCtx) return;
@@ -208,26 +206,22 @@ function startMusic(){
 
   musicTimer = setInterval(() => {
     const withinStep = (stepIdx % 2 === 1) ? swing : 0; // swing on off-16ths
-    const t = audioCtx.currentTime + 0.035 + withinStep; // tiny scheduling lead
+    const t = audioCtx.currentTime + 0.035 + withinStep;
     const pos = stepIdx % 16;
 
-    // KICK: 4-on-the-floor + ghost on 14
     if ([0,4,8,12].includes(pos)) scheduleKick(t);
-    if (pos === 14) scheduleKick(t); // ghost
+    if (pos === 14) scheduleKick(t);
 
-    // SNARE: backbeat (2 & 4) with a clap layer on 12
     if (pos === 4 || pos === 12) scheduleSnare(t);
     if (pos === 12) scheduleClap(t + 0.01);
 
-    // HATS: closed every 16th, open on 7 & 15
     const open = (pos === 7 || pos === 15);
     scheduleHat(t, open);
 
-    // BASS: 8-step pattern on even steps (eighth notes)
-    const bassNotes = [65, 49, 58, 49, 65, 78, 98, 58]; // C2, G1, Bb1...
+    const bassNotes = [65, 49, 58, 49, 65, 78, 98, 58];
     if (pos % 2 === 0) {
       const n = bassNotes[(pos/2) % bassNotes.length];
-      beepAt(n, step*800, 0, "square", .08, rnd(5)); // short pluck
+      beepAt(n, step*800, 0, "square", .08, rnd(5));
     }
 
     stepIdx++;
@@ -301,9 +295,9 @@ function startGame() {
   pauseBtn.disabled = false;
 
   document.body.style.cursor = "none";
-  document.body.classList.add("noscroll");   // lock scroll on mobile
+  document.body.classList.add("noscroll");
   document.body.classList.add("playing");
-  updateHudGap(); // ensure board clears the HUD
+  updateHudGap();
 
   paused = false;
   pauseOverlay.classList.remove("show");
@@ -334,7 +328,7 @@ function resetUIOnly() {
   document.body.classList.remove("noscroll");
   document.body.classList.remove("playing");
   stopMusic();
-  updateHudGap(); // collapse gap
+  updateHudGap();
 }
 
 function endGame() {
@@ -357,9 +351,9 @@ function endGame() {
   document.body.classList.remove("noscroll");
   document.body.classList.remove("playing");
   stopMusic();
-  updateHudGap(); // collapse gap
+  updateHudGap();
 
-  ensureTop(); // keep header visible after game ends
+  ensureTop();
 }
 
 function showModal(){ modal.classList.add("open"); }
@@ -418,84 +412,97 @@ function spawnHazard() {
   gameArea.appendChild(hz);
 }
 
-// ---------- Game loop ----------
+// ---------- Game loop (with crossing-based collisions) ----------
 function step() {
   if (paused) return;
 
-  const catchLineY = gameArea.clientHeight - PADDLE_H - BALL_SIZE;
+  const areaRect = gameArea.getBoundingClientRect();
+  const padRect  = paddle.getBoundingClientRect();
+  const padTop   = padRect.top - areaRect.top;             // relative to gameArea
+  const padLeft  = padRect.left - areaRect.left;
+  const padRight = padLeft + padRect.width;
 
   // Balls
   [...gameArea.querySelectorAll(".ball")].forEach(ball => {
-    const y = parseInt(ball.style.top, 10) || 0;
-    const ny = y + fallSpeed;
-    ball.style.top = ny + "px";
+    const prevY = parseFloat(ball.style.top) || 0;
+    const newY  = prevY + fallSpeed;
+    ball.style.top = newY + "px";
 
-    if (ny >= catchLineY) {
-      const ballRect = ball.getBoundingClientRect();
-      const padRect  = paddle.getBoundingClientRect();
-      const areaRect = gameArea.getBoundingClientRect();
-      const overlaps = ballRect.left < padRect.right && ballRect.right > padRect.left;
+    const ballLeft  = parseFloat(ball.style.left) || 0;
+    const ballRight = ballLeft + BALL_SIZE;
+    const crossedPadTop = (prevY + BALL_SIZE <= padTop) && (newY + BALL_SIZE >= padTop);
+    const horizontalOverlap = (ballLeft < padRight) && (ballRight > padLeft);
 
-      if (overlaps) {
-        // Local (relative-to-board) collision point
-        const relX = (ballRect.left - areaRect.left) + ballRect.width / 2;
-        const relY = (ballRect.top  - areaRect.top)  + ballRect.height / 2;
+    if (crossedPadTop && horizontalOverlap) {
+      // Contact point: ball center at y = padTop
+      const relX = ballLeft + BALL_SIZE/2;
+      const relY = padTop;
 
-        // Combo & score
-        streak++;
-        multiplier = Math.min(5, 1 + Math.floor(streak / 5));
-        comboEl.textContent = `x${multiplier}`;
-        score += 1 * multiplier; scoreEl.textContent = score;
+      streak++;
+      multiplier = Math.min(5, 1 + Math.floor(streak / 5));
+      comboEl.textContent = `x${multiplier}`;
+      score += 1 * multiplier; scoreEl.textContent = score;
 
-        // SFX + particles (inside the board)
-        sfx.catch();
-        spawnParticles(relX, relY, "#e74c3c");
-      } else {
-        streak = 0; multiplier = 1; comboEl.textContent = "x1";
-        missed++; missedEl.textContent = missed; sfx.miss();
-        gameArea.classList.add("shake"); setTimeout(()=>gameArea.classList.remove("shake"), 320);
-        paddle.classList.add("flash"); setTimeout(()=>paddle.classList.remove("flash"), 180);
-        if (missed >= MAX_MISSED) { ball.remove(); endGame(); return; }
-      }
+      sfx.catch();
+      spawnParticles(relX, relY, "#e74c3c");
       ball.remove();
+      return;
+    }
+
+    // Miss if it goes out the bottom
+    if (newY >= gameArea.clientHeight - BALL_SIZE) {
+      streak = 0; multiplier = 1; comboEl.textContent = "x1";
+      missed++; missedEl.textContent = missed; sfx.miss();
+      gameArea.classList.add("shake"); setTimeout(()=>gameArea.classList.remove("shake"), 320);
+      paddle.classList.add("flash"); setTimeout(()=>paddle.classList.remove("flash"), 180);
+      ball.remove();
+      if (missed >= MAX_MISSED) { endGame(); }
     }
   });
 
   // Power-ups
   [...gameArea.querySelectorAll(".powerup")].forEach(pu => {
-    const y = parseInt(pu.style.top, 10) || 0;
-    const ny = y + fallSpeed;
-    pu.style.top = ny + "px";
+    const prevY = parseFloat(pu.style.top) || 0;
+    const newY  = prevY + fallSpeed;
+    pu.style.top = newY + "px";
 
-    if (ny >= catchLineY) {
-      const puRect = pu.getBoundingClientRect();
-      const padRect= paddle.getBoundingClientRect();
-      const overlaps = puRect.left < padRect.right && puRect.right > padRect.left;
-      if (overlaps) applyPowerUp(pu.classList[1]);
+    const left   = parseFloat(pu.style.left) || 0;
+    const right  = left + 20;
+    const crossedPadTop = (prevY + 20 <= padTop) && (newY + 20 >= padTop);
+    const horizontalOverlap = (left < padRight) && (right > padLeft);
+
+    if (crossedPadTop && horizontalOverlap) {
+      applyPowerUp(pu.classList[1]);
       pu.remove();
+      return;
     }
+
+    if (newY >= gameArea.clientHeight - 20) pu.remove();
   });
 
   // Hazards
   [...gameArea.querySelectorAll(".hazard")].forEach(hz => {
-    const y = parseInt(hz.style.top, 10) || 0;
-    const ny = y + fallSpeed + 1;
-    hz.style.top = ny + "px";
+    const prevY = parseFloat(hz.style.top) || 0;
+    const newY  = prevY + fallSpeed + 1;
+    hz.style.top = newY + "px";
 
-    if (ny >= catchLineY) {
-      const hzRect = hz.getBoundingClientRect();
-      const padRect= paddle.getBoundingClientRect();
-      const overlaps = hzRect.left < padRect.right && hzRect.right > padRect.left;
-      if (overlaps) {
-        sfx.bomb();
-        streak = 0; multiplier = 1; comboEl.textContent = "x1";
-        missed++; missedEl.textContent = missed;
-        gameArea.classList.add("shake"); setTimeout(()=>gameArea.classList.remove("shake"), 320);
-        paddle.classList.add("flash"); setTimeout(()=>paddle.classList.remove("flash"), 180);
-        if (missed >= MAX_MISSED) { hz.remove(); endGame(); return; }
-      }
+    const left   = parseFloat(hz.style.left) || 0;
+    const right  = left + 22;
+    const crossedPadTop = (prevY + 22 <= padTop) && (newY + 22 >= padTop);
+    const horizontalOverlap = (left < padRight) && (right > padLeft);
+
+    if (crossedPadTop && horizontalOverlap) {
+      sfx.bomb();
+      streak = 0; multiplier = 1; comboEl.textContent = "x1";
+      missed++; missedEl.textContent = missed;
+      gameArea.classList.add("shake"); setTimeout(()=>gameArea.classList.remove("shake"), 320);
+      paddle.classList.add("flash"); setTimeout(()=>paddle.classList.remove("flash"), 180);
       hz.remove();
+      if (missed >= MAX_MISSED) { endGame(); }
+      return;
     }
+
+    if (newY >= gameArea.clientHeight - 22) hz.remove();
   });
 }
 
